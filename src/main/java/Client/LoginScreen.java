@@ -17,7 +17,7 @@ public class LoginScreen extends JFrame {
     private JTextField nameField;
 
     public LoginScreen() {
-        setTitle("Snakes and Ladders - Giriş");
+        setTitle("Snakes and Ladders - Login");
         setSize(600, 400);
         setLocationRelativeTo(null);
         setUndecorated(true);
@@ -26,73 +26,77 @@ public class LoginScreen extends JFrame {
         panel.setLayout(null);
         add(panel);
 
-        // 🐍 Başlık
+        // 🐍 Title
         JLabel title = new JLabel("🐍  SNAKES & LADDERS 🎲", SwingConstants.CENTER);
-        title.setFont(new Font("Serif", Font.BOLD, 34));
+        title.setFont(new Font("Serif", Font.BOLD, 32));
         title.setForeground(Color.WHITE);
         title.setBounds(80, 40, 440, 50);
         panel.add(title);
 
-        // ❓ Bilgi butonu
+        // ❓ Info button
         JButton infoBtn = new JButton("❓");
         styleIconButton(infoBtn);
         infoBtn.setBounds(10, 10, 45, 30);
         infoBtn.addActionListener(e
                 -> JOptionPane.showMessageDialog(this,
-                        "🎯 Amaç: Zar atarak 100'e ulaşmak.\n🟩 Merdiven çıkartır, 🟥 Yılan düşürür.\n👥 2 kişi sırayla oynar, iyi şanslar!",
-                        "Nasıl Oynanır?", JOptionPane.INFORMATION_MESSAGE)
-        );
+                        "🎯 Goal: Reach 100 by rolling the dice.\n🟩 Ladders lift you up, 🟥 snakes bring you down.\n👥 Two players take turns. Good luck!",
+                        "How to Play", JOptionPane.INFORMATION_MESSAGE));
         panel.add(infoBtn);
 
-        // ❌ Çıkış butonu
+        // ❌ Exit button
         JButton exitBtn = new JButton("❌");
         styleIconButton(exitBtn);
         exitBtn.setBounds(545, 10, 45, 30);
         exitBtn.addActionListener(e -> System.exit(0));
         panel.add(exitBtn);
 
-        // 🔤 Etiket
-        JLabel nameLabel = new JLabel("Adınızı giriniz:");
+        // 🔤 Name label
+        JLabel nameLabel = new JLabel("Enter your name:");
         nameLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         nameLabel.setForeground(Color.DARK_GRAY);
         nameLabel.setBounds(240, 130, 200, 30);
         panel.add(nameLabel);
 
-        // 🧾 TextField
+        // 🧾 Name field
         nameField = new JTextField();
         nameField.setBounds(180, 160, 240, 35);
         nameField.setFont(new Font("SansSerif", Font.PLAIN, 16));
         panel.add(nameField);
 
-        // 🎮 BAŞLA butonu + ikon
-        ImageIcon rawIcon = new ImageIcon(getClass().getResource("/images/play.png"));
-        Image scaledImg = rawIcon.getImage().getScaledInstance(24, 24, Image.SCALE_SMOOTH);
-        ImageIcon scaledIcon = new ImageIcon(scaledImg);
-
-        JButton startBtn = new JButton("BAŞLA", scaledIcon);
+        // 🟧 START button
+        JButton startBtn = new JButton("START");
         startBtn.setFont(new Font("Arial", Font.BOLD, 18));
         startBtn.setBounds(215, 220, 170, 45);
         startBtn.setBackground(new Color(255, 183, 77));
         startBtn.setForeground(Color.BLACK);
         startBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         startBtn.setHorizontalTextPosition(SwingConstants.RIGHT);
-        startBtn.setIconTextGap(10);
-
         startBtn.addActionListener(e -> {
             String name = nameField.getText().trim();
             if (!name.isEmpty()) {
                 dispose();
                 new GUIClient(name);
             } else {
-                JOptionPane.showMessageDialog(this, "Lütfen adınızı giriniz!");
+                JOptionPane.showMessageDialog(this, "Please enter your name!");
             }
         });
-
         panel.add(startBtn);
+
+        // 🎲 Dice icon (bottom-right)
+        try {
+            ImageIcon diceIcon = new ImageIcon(getClass().getResource("/Client/images/zar.png"));
+            Image scaledDice = diceIcon.getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
+            JLabel diceLabel = new JLabel(new ImageIcon(scaledDice));
+            diceLabel.setBounds(530, 320, 50, 50); // Adjusted for bottom-right
+            panel.add(diceLabel);
+        } catch (Exception ex) {
+            System.out.println("⚠️ Dice image not found: " + ex.getMessage());
+        }
 
         setVisible(true);
     }
 
+    // Button style
     private void styleIconButton(JButton btn) {
         btn.setFont(new Font("SansSerif", Font.BOLD, 14));
         btn.setFocusPainted(false);
@@ -100,6 +104,7 @@ public class LoginScreen extends JFrame {
         btn.setBorder(BorderFactory.createLineBorder(Color.GRAY));
     }
 
+    // Gradient background panel
     static class GradientPanel extends JPanel {
 
         @Override
