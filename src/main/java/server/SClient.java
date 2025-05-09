@@ -11,6 +11,7 @@ import java.net.Socket;
  *
  * @author Rümeysa
  */
+// --- SClient.java ---
 public class SClient extends Thread {
 
     Socket socket;
@@ -34,14 +35,19 @@ public class SClient extends Thread {
     @Override
     public void run() {
         try {
-            send("WELCOME: " + clientId);
             String msg;
             while ((msg = in.readLine()) != null) {
-                if (msg.equals("ROLL")) {
+                if (msg.startsWith("NAME:")) {
+                    String oldId = this.clientId;
+                    this.clientId = msg.substring(5).trim();
+                    server.updateClientId(oldId, this.clientId);
+                    send("WELCOME:" + this.clientId);
+                    server.broadcast("JOINED:" + this.clientId);
+                } else if (msg.equals("ROLL")) {
                     server.processRoll(clientId);
                 }
-
             }
+
         } catch (IOException e) {
             e.printStackTrace();
         }

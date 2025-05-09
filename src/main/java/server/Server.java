@@ -43,11 +43,17 @@ public class Server {
                 client.start();
             }
 
-            // Oyuna başla
             sendTurnToCurrentPlayer();
 
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public void updateClientId(String oldId, String newId) {
+        if (positions.containsKey(oldId)) {
+            int pos = positions.remove(oldId);
+            positions.put(newId, pos);
         }
     }
 
@@ -57,7 +63,7 @@ public class Server {
         }
 
         int roll = random.nextInt(6) + 1;
-        int oldPos = positions.get(clientId);
+        int oldPos = positions.getOrDefault(clientId, 1);
         int newPos = Math.min(100, oldPos + roll);
         newPos = applySnakesAndLadders(newPos);
 
@@ -69,14 +75,13 @@ public class Server {
             return;
         }
 
-        // Sırayı değiştir
         currentPlayerIndex = (currentPlayerIndex + 1) % clients.size();
         sendTurnToCurrentPlayer();
     }
 
     private void sendTurnToCurrentPlayer() {
         SClient current = clients.get(currentPlayerIndex);
-        current.send("YOUR_TURN");
+        //current.send("YOUR_TURN");
         broadcast("TURN:" + current.clientId);
     }
 
@@ -103,3 +108,4 @@ public class Server {
         }
     }
 }
+

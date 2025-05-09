@@ -17,6 +17,7 @@ import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
  * @author Rümeysa
  */
 public class GUIClient extends JFrame {
+
     private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
@@ -28,30 +29,31 @@ public class GUIClient extends JFrame {
     private String myId = "";
     private boolean myTurn = false;
 
+    private String playerName;
     private Map<String, Integer> positions = new HashMap<>();
     private JLabel[] cells = new JLabel[100];
 
-    // Merdiven ve yılan pozisyonları
     private final Map<Integer, Integer> ladders = Map.of(
-        3, 22,
-        5, 8,
-        11, 26,
-        20, 29
+            3, 22,
+            5, 8,
+            11, 26,
+            20, 29
     );
 
     private final Map<Integer, Integer> snakes = Map.of(
-        27, 1,
-        17, 4,
-        19, 7
+            27, 1,
+            17, 4,
+            19, 7
     );
 
-    public GUIClient() {
+    public GUIClient(String name) {
+        this.playerName = name;
+
         setTitle("Snakes and Ladders - Client");
         setSize(600, 700);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // TAHTA
         boardPanel = new JPanel(new GridLayout(10, 10));
         for (int i = 99; i >= 0; i--) {
             JLabel cell = new JLabel(String.valueOf(i + 1), SwingConstants.CENTER);
@@ -63,13 +65,11 @@ public class GUIClient extends JFrame {
         }
         add(boardPanel, BorderLayout.CENTER);
 
-        // MESAJ ALANI
         txtArea = new JTextArea(5, 20);
         txtArea.setEditable(false);
         JScrollPane scrollPane = new JScrollPane(txtArea);
         add(scrollPane, BorderLayout.NORTH);
 
-        // ZAR AT BUTONU
         btnRoll = new JButton("ZAR AT");
         btnRoll.setEnabled(false);
         btnRoll.addActionListener(e -> {
@@ -87,6 +87,8 @@ public class GUIClient extends JFrame {
             socket = new Socket("localhost", 5000);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
+
+            out.println("NAME:" + playerName);
 
             new Thread(() -> {
                 String line;
@@ -107,13 +109,19 @@ public class GUIClient extends JFrame {
     private void processMessage(String msg) {
         SwingUtilities.invokeLater(() -> {
             if (msg.startsWith("WELCOME:")) {
-                myId = msg.substring(8);
-                txtArea.append("ID: " + myId + "\n");
+                myId = msg.substring(8).trim();
+                txtArea.setText("ID: " + myId + "\n");
 
             } else if (msg.startsWith("TURN:")) {
                 String activeId = msg.substring(5);
                 myTurn = activeId.equals(myId);
-                txtArea.append("Sıra: " + activeId + "\n");
+
+                if (myTurn) {
+                    txtArea.append("\n🎯 Sıra sende! Zar atma zamanı! 🎲\n");
+                } else {
+                    txtArea.append("🟢 Sıra: " + activeId + "\n");
+                }
+
                 btnRoll.setEnabled(myTurn);
 
             } else if (msg.startsWith("MOVE:")) {
@@ -151,9 +159,9 @@ public class GUIClient extends JFrame {
             cells[i].setBackground(Color.WHITE);
 
             if (ladders.containsKey(i + 1)) {
-                cells[i].setBackground(Color.GREEN); // Merdiven
+                cells[i].setBackground(Color.GREEN);
             } else if (snakes.containsKey(i + 1)) {
-                cells[i].setBackground(Color.RED); // Yılan
+                cells[i].setBackground(Color.RED);
             }
         }
 
@@ -168,6 +176,6 @@ public class GUIClient extends JFrame {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new GUIClient());
+        SwingUtilities.invokeLater(LoginScreen::new);
     }
 }
