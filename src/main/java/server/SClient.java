@@ -11,9 +11,8 @@ import java.net.Socket;
  *
  * @author Rümeysa
  */
-
-
 public class SClient extends Thread {
+
     Socket socket;
     Server server;
     String clientId;
@@ -35,16 +34,16 @@ public class SClient extends Thread {
     @Override
     public void run() {
         try {
-            send("WELCOME:" + clientId);
+            send("WELCOME: " + clientId);
             String msg;
             while ((msg = in.readLine()) != null) {
                 if (msg.equals("ROLL")) {
                     server.processRoll(clientId);
                 }
+
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 }
-

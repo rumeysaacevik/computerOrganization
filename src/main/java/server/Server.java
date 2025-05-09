@@ -7,62 +7,77 @@ package server;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 /**
  *
  * @author Rümeysa
  */
-public class Server extends Thread {
+public class Server {
 
-    ServerSocket serverSocket;
-    List<SClient> clients = new ArrayList<>();
-    Map<String, Integer> positions = new HashMap<>();
-    int currentPlayerIndex = 0;
+    private ServerSocket serverSocket;
+    private List<SClient> clients = new ArrayList<>();
+    private int currentPlayerIndex = 0;
+    private Random random = new Random();
+    private Map<String, Integer> positions = new HashMap<>();
 
     public Server(int port) throws IOException {
         serverSocket = new ServerSocket(port);
     }
 
     public void Start() {
-        System.out.println("Sunucu başlatıldı. Port: " + serverSocket.getLocalPort());
-        this.start();
+        System.out.println("Sunucu başlatıldı.");
+        new Thread(this::listenForClients).start();
     }
 
-    public synchronized void broadcast(String msg) throws IOException {
-        for (SClient client : clients) {
-            client.send(msg);
+    private void listenForClients() {
+        try {
+            while (clients.size() < 2) {
+                Socket socket = serverSocket.accept();
+                String clientId = "Player" + (clients.size() + 1);
+                SClient client = new SClient(socket, this, clientId);
+                clients.add(client);
+                positions.put(clientId, 1);
+                broadcast("JOINED:" + clientId);
+                client.send("WELCOME:" + clientId);
+                client.start();
+            }
+
+            // Oyuna başla
+            sendTurnToCurrentPlayer();
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
-    public synchronized void nextTurn() throws IOException {
-        String currentId = clients.get(currentPlayerIndex).clientId;
-        clients.get(currentPlayerIndex).send("YOUR_TURN");
-        broadcast("TURN:" + currentId);
-    }
-
-    public synchronized void processRoll(String clientId) throws IOException {
+    public void processRoll(String clientId) {
         if (!clientId.equals(clients.get(currentPlayerIndex).clientId)) {
-            return;
+            return; // Sırası değilse yoksay
         }
 
-        int roll = new Random().nextInt(6) + 1;
-        int pos = positions.getOrDefault(clientId, 0) + roll;
-        pos = applySnakesAndLadders(pos);
-        positions.put(clientId, pos);
-        broadcast("MOVE:" + clientId + ":" + roll + ":" + pos);
+        int roll = random.nextInt(6) + 1;
+        int oldPos = positions.get(clientId);
+        int newPos = Math.min(100, oldPos + roll);
+        newPos = applySnakesAndLadders(newPos);
 
-        if (pos >= 100) {
+        positions.put(clientId, newPos);
+        broadcast("MOVE:" + clientId + ":" + roll + ":" + newPos);
+
+        if (newPos == 100) {
             broadcast("WINNER:" + clientId);
             return;
         }
 
+        // Sırayı değiştir
         currentPlayerIndex = (currentPlayerIndex + 1) % clients.size();
-        nextTurn();
+        sendTurnToCurrentPlayer();
+    }
+
+    private void sendTurnToCurrentPlayer() {
+        SClient current = clients.get(currentPlayerIndex);
+        current.send("YOUR_TURN");
+        broadcast("TURN:" + current.clientId);
     }
 
     private int applySnakesAndLadders(int pos) {
@@ -71,33 +86,20 @@ public class Server extends Thread {
         map.put(5, 8);
         map.put(11, 26);
         map.put(20, 29);
-        map.put(27, 1);
-        map.put(21, 9);
+        map.put(34, 54);
+        map.put(91, 73);
         map.put(17, 4);
         map.put(19, 7);
-        map.put(34, 54);
+        map.put(21, 9);
+        map.put(27, 1);
         map.put(62, 18);
         map.put(87, 36);
-        map.put(91, 73);
-
         return map.getOrDefault(pos, pos);
     }
 
-    @Override
-    public void run() {
-        try {
-            while (clients.size() < 2) {
-                Socket s = serverSocket.accept();
-                String clientId = "Player" + (clients.size() + 1);
-                SClient client = new SClient(s, this, clientId);
-                clients.add(client);
-                positions.put(clientId, 0);
-                client.start();
-                broadcast("JOINED:" + clientId);
-            }
-            nextTurn();
-        } catch (IOException e) {
-            e.printStackTrace();
+    public void broadcast(String msg) {
+        for (SClient client : clients) {
+            client.send(msg);
         }
     }
 }

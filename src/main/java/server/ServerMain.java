@@ -15,7 +15,7 @@ public class ServerMain {
     public static void main(String[] args) {
         try {
             Server server = new Server(5000);  // Port 5000
-            server.Start(); // Dinlemeye başla
+            server.Start(); // dinlemeye basla
         } catch (IOException e) {
             e.printStackTrace();
         }

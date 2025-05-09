@@ -10,13 +10,13 @@ import java.io.*;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
+import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
 
 /**
  *
  * @author Rümeysa
  */
 public class GUIClient extends JFrame {
-
     private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
@@ -33,16 +33,16 @@ public class GUIClient extends JFrame {
 
     // Merdiven ve yılan pozisyonları
     private final Map<Integer, Integer> ladders = Map.of(
-            3, 22,
-            5, 8,
-            11, 26,
-            20, 29
+        3, 22,
+        5, 8,
+        11, 26,
+        20, 29
     );
 
     private final Map<Integer, Integer> snakes = Map.of(
-            27, 1,
-            17, 4,
-            19, 7
+        27, 1,
+        17, 4,
+        19, 7
     );
 
     public GUIClient() {
@@ -147,32 +147,23 @@ public class GUIClient extends JFrame {
 
     private void updateBoard() {
         for (int i = 0; i < 100; i++) {
-            int cellNum = i + 1;
-            String labelText = String.valueOf(cellNum);
-            Color bgColor = Color.WHITE;
+            cells[i].setText(String.valueOf(i + 1));
+            cells[i].setBackground(Color.WHITE);
 
-            // Merdiven varsa
-            if (ladders.containsKey(cellNum)) {
-                int target = ladders.get(cellNum);
-                labelText = cellNum + " ↑" + target;
-                bgColor = Color.GREEN;
-            } // Yılan varsa
-            else if (snakes.containsKey(cellNum)) {
-                int target = snakes.get(cellNum);
-                labelText = cellNum + " ↓" + target;
-                bgColor = Color.RED;
+            if (ladders.containsKey(i + 1)) {
+                cells[i].setBackground(Color.GREEN); // Merdiven
+            } else if (snakes.containsKey(i + 1)) {
+                cells[i].setBackground(Color.RED); // Yılan
             }
+        }
 
-            // Oyuncu varsa
-            for (Map.Entry<String, Integer> entry : positions.entrySet()) {
-                if (entry.getValue() == cellNum) {
-                    labelText += " [" + entry.getKey() + "]";
-                    bgColor = Color.YELLOW;
-                }
+        for (Map.Entry<String, Integer> entry : positions.entrySet()) {
+            int index = entry.getValue() - 1;
+            if (index >= 0 && index < 100) {
+                String currentText = cells[index].getText();
+                cells[index].setText(currentText + " [" + entry.getKey() + "]");
+                cells[index].setBackground(Color.YELLOW);
             }
-
-            cells[i].setText(labelText);
-            cells[i].setBackground(bgColor);
         }
     }
 
