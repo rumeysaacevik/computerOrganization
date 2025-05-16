@@ -22,61 +22,30 @@ public class GUIClient extends JFrame {
     private BufferedReader in;
     private PrintWriter out;
 
-    private JTextArea txtArea;
-    private JButton btnRoll;
-    private JPanel boardPanel;
-
     private String myId = "";
     private boolean myTurn = false;
-
     private String playerName;
-    private Map<String, Integer> positions = new HashMap<>();
-    private JLabel[] cells = new JLabel[100];
 
-    private final Map<Integer, Integer> ladders = Map.of(
-            3, 22,
-            5, 8,
-            11, 26,
-            20, 29
-    );
+    private final Map<String, Integer> positions = new HashMap<>();
+    private final Map<Integer, Integer> ladders = Map.of(3, 22, 5, 8, 11, 26, 20, 29);
+    private final Map<Integer, Integer> snakes = Map.of(27, 1, 17, 4, 19, 7);
 
-    private final Map<Integer, Integer> snakes = Map.of(
-            27, 1,
-            17, 4,
-            19, 7
-    );
+    private GameBoardPanel boardPanel;
+    private ControlPanel controlPanel;
 
     public GUIClient(String name) {
         this.playerName = name;
 
         setTitle("Snakes and Ladders - Client");
-        setSize(600, 700);
+        setSize(800, 800);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        boardPanel = new JPanel(new GridLayout(10, 10));
-        for (int i = 99; i >= 0; i--) {
-            JLabel cell = new JLabel(String.valueOf(i + 1), SwingConstants.CENTER);
-            cell.setBorder(BorderFactory.createLineBorder(Color.GRAY));
-            cell.setOpaque(true);
-            cell.setBackground(Color.WHITE);
-            cells[i] = cell;
-            boardPanel.add(cell);
-        }
+        boardPanel = new GameBoardPanel(ladders, snakes);
+        controlPanel = new ControlPanel();
+
         add(boardPanel, BorderLayout.CENTER);
-
-        txtArea = new JTextArea(5, 20);
-        txtArea.setEditable(false);
-        JScrollPane scrollPane = new JScrollPane(txtArea);
-        add(scrollPane, BorderLayout.NORTH);
-
-        btnRoll = new JButton("ZAR AT");
-        btnRoll.setEnabled(false);
-        btnRoll.addActionListener(e -> {
-            out.println("ROLL");
-            btnRoll.setEnabled(false);
-        });
-        add(btnRoll, BorderLayout.SOUTH);
+        add(controlPanel, BorderLayout.SOUTH);
 
         setVisible(true);
         connectToServer();
@@ -90,6 +59,24 @@ public class GUIClient extends JFrame {
 
             out.println("NAME:" + playerName);
 
+            controlPanel.setRollAction(e -> {
+                out.println("ROLL");
+                controlPanel.setRollEnabled(false);
+            });
+
+            controlPanel.setSurrenderAction(e -> {
+                out.println("SURRENDER");
+                controlPanel.setRollEnabled(false);
+                controlPanel.setSurrenderEnabled(false);
+                controlPanel.appendText("Oyundan pes ettiniz.\n");
+            });
+
+            controlPanel.setRestartAction(e -> {
+                out.println("RESTART");
+                controlPanel.setRestartEnabled(false);
+                controlPanel.appendText("Yeni oyun isteği gönderildi.\n");
+            });
+
             new Thread(() -> {
                 String line;
                 try {
@@ -97,7 +84,7 @@ public class GUIClient extends JFrame {
                         processMessage(line);
                     }
                 } catch (IOException e) {
-                    txtArea.append("Bağlantı koptu...\n");
+                    controlPanel.appendText("Bağlantı koptu...\n");
                 }
             }).start();
 
@@ -110,19 +97,24 @@ public class GUIClient extends JFrame {
         SwingUtilities.invokeLater(() -> {
             if (msg.startsWith("WELCOME:")) {
                 myId = msg.substring(8).trim();
-                txtArea.setText("ID: " + myId + "\n");
+                controlPanel.setPlayerId(myId);
+
+            } else if (msg.startsWith("MATCHED:")) {
+                controlPanel.appendText("✅ " + msg.substring(8).trim() + "\n");
+                controlPanel.setSurrenderEnabled(true);
 
             } else if (msg.startsWith("TURN:")) {
-                String activeId = msg.substring(5);
+                String activeId = msg.substring(5).trim();
                 myTurn = activeId.equals(myId);
 
-                if (myTurn) {
-                    txtArea.append("\n🎯 Sıra sende! Zar atma zamanı! 🎲\n");
-                } else {
-                    txtArea.append("🟢 Sıra: " + activeId + "\n");
-                }
+                controlPanel.setRollEnabled(myTurn);
+                controlPanel.setSurrenderEnabled(true);
 
-                btnRoll.setEnabled(myTurn);
+                if (myTurn) {
+                    controlPanel.appendText("\n🎯 Sıra sende! Zar atma zamanı! 🎲\n");
+                } else {
+                    controlPanel.appendText("🟢 Sıra: " + activeId + "\n");
+                }
 
             } else if (msg.startsWith("MOVE:")) {
                 String[] parts = msg.split(":");
@@ -132,47 +124,61 @@ public class GUIClient extends JFrame {
                     int pos = Integer.parseInt(parts[3]);
 
                     positions.put(player, pos);
-                    updateBoard();
+                    boardPanel.updatePositions(positions);
 
-                    txtArea.append(player + " zar attı: " + roll + ", Yeni konum: " + pos + "\n");
+                    controlPanel.appendText(player + " zar attı: " + roll + ", Yeni konum: " + pos + "\n");
                 }
 
-            } else if (msg.startsWith("WINNER:")) {
-                String winner = msg.substring(7);
-                txtArea.append("🏆 Kazanan: " + winner + "\n");
-                btnRoll.setEnabled(false);
+            } else if (msg.startsWith("WINNER:") || msg.startsWith("SURRENDERED:")) {
+                String info = msg.startsWith("WINNER:")
+                        ? "🏆 Kazanan: " + msg.substring(7)
+                        : "⚠️ " + msg.substring(11);
+                controlPanel.appendText(info + "\n");
 
-            } else if (msg.startsWith("JOINED:")) {
-                String joinedPlayer = msg.substring(7);
-                positions.putIfAbsent(joinedPlayer, 0);
-                updateBoard();
+                controlPanel.setRollEnabled(false);
+                controlPanel.setSurrenderEnabled(false);
+                controlPanel.setRestartEnabled(true);
+
+            } else if (msg.startsWith("RESTART_REQUEST_FROM:")) {
+                String fromPlayer = msg.substring("RESTART_REQUEST_FROM:".length()).trim();
+                int response = JOptionPane.showConfirmDialog(
+                        this,
+                        fromPlayer + " yeni bir oyun başlatmak istiyor. Kabul ediyor musunuz?",
+                        "Yeni Oyun Daveti",
+                        JOptionPane.YES_NO_OPTION
+                );
+                if (response == JOptionPane.YES_OPTION) {
+                    out.println("RESTART_RESPONSE:true");
+                } else {
+                    out.println("RESTART_RESPONSE:false");
+                }
+
+            } else if (msg.startsWith("RESTART_CONFIRMED")) {
+                controlPanel.appendText("✅ Her iki oyuncu kabul etti. Yeni oyun başlıyor!\n");
+
+            } else if (msg.startsWith("RESTART_DENIED")) {
+                controlPanel.appendText("❌ Rakip yeni oyunu kabul etmedi.\n");
+                try {
+                    out.println("EXIT");
+                    socket.close();
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+                dispose();
+                new LoginScreen();
+
+            } else if (msg.startsWith("NEW_GAME:")) {
+                controlPanel.appendText("🎲 Yeni oyun başlatıldı!\n");
+                positions.clear();
+                boardPanel.updatePositions(positions);
+                controlPanel.setRestartEnabled(false);
+                controlPanel.setRollEnabled(false);
+                controlPanel.setSurrenderEnabled(true);
 
             } else {
-                txtArea.append(msg + "\n");
+                controlPanel.appendText(msg + "\n");
             }
         });
-    }
-
-    private void updateBoard() {
-        for (int i = 0; i < 100; i++) {
-            cells[i].setText(String.valueOf(i + 1));
-            cells[i].setBackground(Color.WHITE);
-
-            if (ladders.containsKey(i + 1)) {
-                cells[i].setBackground(Color.GREEN);
-            } else if (snakes.containsKey(i + 1)) {
-                cells[i].setBackground(Color.RED);
-            }
-        }
-
-        for (Map.Entry<String, Integer> entry : positions.entrySet()) {
-            int index = entry.getValue() - 1;
-            if (index >= 0 && index < 100) {
-                String currentText = cells[index].getText();
-                cells[index].setText(currentText + " [" + entry.getKey() + "]");
-                cells[index].setBackground(Color.YELLOW);
-            }
-        }
     }
 
     public static void main(String[] args) {
