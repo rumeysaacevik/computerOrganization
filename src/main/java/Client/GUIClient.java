@@ -21,31 +21,76 @@ public class GUIClient extends JFrame {
     private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
-
+    private JTextArea txtArea;
+    private JButton btnRoll;
+    private JButton btnSurrender; // Yeni buton
+    private JPanel boardPanel;
     private String myId = "";
     private boolean myTurn = false;
     private String playerName;
+    private Map<String, Integer> positions = new HashMap<>();
+    private JLabel[] cells = new JLabel[100];
 
-    private final Map<String, Integer> positions = new HashMap<>();
-    private final Map<Integer, Integer> ladders = Map.of(3, 22, 5, 8, 11, 26, 20, 29);
-    private final Map<Integer, Integer> snakes = Map.of(27, 1, 17, 4, 19, 7);
-
-    private GameBoardPanel boardPanel;
-    private ControlPanel controlPanel;
+    private final Map<Integer, Integer> ladders = Map.of(
+            3, 22, 5, 8, 11, 26, 20, 29
+    );
+    private final Map<Integer, Integer> snakes = Map.of(
+            27, 1, 17, 4, 19, 7
+    );
+    private JButton btnRestart;
 
     public GUIClient(String name) {
         this.playerName = name;
 
         setTitle("Snakes and Ladders - Client");
-        setSize(800, 800);
+        setSize(600, 700);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        boardPanel = new GameBoardPanel(ladders, snakes);
-        controlPanel = new ControlPanel();
-
+        boardPanel = new JPanel(new GridLayout(10, 10));
+        for (int i = 99; i >= 0; i--) {
+            JLabel cell = new JLabel(String.valueOf(i + 1), SwingConstants.CENTER);
+            cell.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+            cell.setOpaque(true);
+            cell.setBackground(Color.WHITE);
+            cells[i] = cell;
+            boardPanel.add(cell);
+        }
         add(boardPanel, BorderLayout.CENTER);
-        add(controlPanel, BorderLayout.SOUTH);
+
+        txtArea = new JTextArea(5, 20);
+        txtArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(txtArea);
+        add(scrollPane, BorderLayout.NORTH);
+
+        JPanel southPanel = new JPanel();
+        btnRoll = new JButton("ZAR AT");
+        btnRoll.setEnabled(false);
+        btnRoll.addActionListener(e -> {
+            out.println("ROLL");
+            btnRoll.setEnabled(false);
+        });
+        southPanel.add(btnRoll);
+        btnRestart = new JButton("YENİ OYUN");
+        btnRestart.setEnabled(false);  // oyun bitmeden pasif
+        btnRestart.addActionListener(e -> {
+            out.println("RESTART");
+            btnRestart.setEnabled(false);
+            txtArea.append("Yeni oyun isteği gönderildi.\n");
+        });
+        southPanel.add(btnRestart);
+
+        btnSurrender = new JButton("SURRENDER");
+        btnSurrender.setEnabled(false);
+        btnSurrender.addActionListener(e -> {
+            out.println("SURRENDER");
+            btnSurrender.setEnabled(false);
+            btnRoll.setEnabled(false);
+            txtArea.append("Oyundan pes ettiniz.\n");
+        });
+        southPanel.add(btnSurrender);
+
+        add(southPanel, BorderLayout.SOUTH);
 
         setVisible(true);
         connectToServer();
@@ -57,25 +102,7 @@ public class GUIClient extends JFrame {
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
 
-            out.println("NAME:" + playerName);
-
-            controlPanel.setRollAction(e -> {
-                out.println("ROLL");
-                controlPanel.setRollEnabled(false);
-            });
-
-            controlPanel.setSurrenderAction(e -> {
-                out.println("SURRENDER");
-                controlPanel.setRollEnabled(false);
-                controlPanel.setSurrenderEnabled(false);
-                controlPanel.appendText("Oyundan pes ettiniz.\n");
-            });
-
-            controlPanel.setRestartAction(e -> {
-                out.println("RESTART");
-                controlPanel.setRestartEnabled(false);
-                controlPanel.appendText("Yeni oyun isteği gönderildi.\n");
-            });
+            out.println("NAME:" + playerName); // Oyuncu adı gönderilir
 
             new Thread(() -> {
                 String line;
@@ -84,7 +111,7 @@ public class GUIClient extends JFrame {
                         processMessage(line);
                     }
                 } catch (IOException e) {
-                    controlPanel.appendText("Bağlantı koptu...\n");
+                    txtArea.append("Bağlantı koptu...\n");
                 }
             }).start();
 
@@ -97,23 +124,23 @@ public class GUIClient extends JFrame {
         SwingUtilities.invokeLater(() -> {
             if (msg.startsWith("WELCOME:")) {
                 myId = msg.substring(8).trim();
-                controlPanel.setPlayerId(myId);
+                txtArea.setText("ID: " + myId + "\n");
 
             } else if (msg.startsWith("MATCHED:")) {
-                controlPanel.appendText("✅ " + msg.substring(8).trim() + "\n");
-                controlPanel.setSurrenderEnabled(true);
+                txtArea.append("✅ " + msg.substring(8).trim() + "\n");
+                btnSurrender.setEnabled(true);
 
             } else if (msg.startsWith("TURN:")) {
-                String activeId = msg.substring(5).trim();
+                String activeId = msg.substring(5);
                 myTurn = activeId.equals(myId);
 
-                controlPanel.setRollEnabled(myTurn);
-                controlPanel.setSurrenderEnabled(true);
+                btnRoll.setEnabled(myTurn);
+                btnSurrender.setEnabled(true);
 
                 if (myTurn) {
-                    controlPanel.appendText("\n🎯 Sıra sende! Zar atma zamanı! 🎲\n");
+                    txtArea.append("\n🎯 Sıra sende! Zar atma zamanı! 🎲\n");
                 } else {
-                    controlPanel.appendText("🟢 Sıra: " + activeId + "\n");
+                    txtArea.append("🟢 Sıra: " + activeId + "\n");
                 }
 
             } else if (msg.startsWith("MOVE:")) {
@@ -124,20 +151,24 @@ public class GUIClient extends JFrame {
                     int pos = Integer.parseInt(parts[3]);
 
                     positions.put(player, pos);
-                    boardPanel.updatePositions(positions);
+                    updateBoard();
 
-                    controlPanel.appendText(player + " zar attı: " + roll + ", Yeni konum: " + pos + "\n");
+                    txtArea.append(player + " zar attı: " + roll + ", Yeni konum: " + pos + "\n");
                 }
 
             } else if (msg.startsWith("WINNER:") || msg.startsWith("SURRENDERED:")) {
                 String info = msg.startsWith("WINNER:")
                         ? "🏆 Kazanan: " + msg.substring(7)
                         : "⚠️ " + msg.substring(11);
-                controlPanel.appendText(info + "\n");
+                txtArea.append(info + "\n");
+                btnRoll.setEnabled(false);
+                btnSurrender.setEnabled(false);
+                btnRestart.setEnabled(true);
 
-                controlPanel.setRollEnabled(false);
-                controlPanel.setSurrenderEnabled(false);
-                controlPanel.setRestartEnabled(true);
+            } else if (msg.startsWith("SURRENDERED:")) {
+                txtArea.append("⚠️ " + msg.substring(11).trim() + "\n");
+                btnRoll.setEnabled(false);
+                btnSurrender.setEnabled(false);
 
             } else if (msg.startsWith("RESTART_REQUEST_FROM:")) {
                 String fromPlayer = msg.substring("RESTART_REQUEST_FROM:".length()).trim();
@@ -154,31 +185,64 @@ public class GUIClient extends JFrame {
                 }
 
             } else if (msg.startsWith("RESTART_CONFIRMED")) {
-                controlPanel.appendText("✅ Her iki oyuncu kabul etti. Yeni oyun başlıyor!\n");
+                txtArea.append("✅ Her iki oyuncu kabul etti. Yeni oyun başlıyor!\n");
 
             } else if (msg.startsWith("RESTART_DENIED")) {
-                controlPanel.appendText("❌ Rakip yeni oyunu kabul etmedi.\n");
+                txtArea.append("❌ Rakip yeni oyunu kabul etmedi.\n");
+
                 try {
                     out.println("EXIT");
                     socket.close();
                 } catch (IOException ex) {
                     ex.printStackTrace();
                 }
+
                 dispose();
                 new LoginScreen();
 
             } else if (msg.startsWith("NEW_GAME:")) {
-                controlPanel.appendText("🎲 Yeni oyun başlatıldı!\n");
+                txtArea.append("🎲 Yeni oyun başlatıldı!\n");
                 positions.clear();
-                boardPanel.updatePositions(positions);
-                controlPanel.setRestartEnabled(false);
-                controlPanel.setRollEnabled(false);
-                controlPanel.setSurrenderEnabled(true);
+                for (int i = 0; i < 100; i++) {
+                    cells[i].setText(String.valueOf(i + 1));
+                    cells[i].setBackground(Color.WHITE);
+
+                    if (ladders.containsKey(i + 1)) {
+                        cells[i].setBackground(Color.GREEN);
+                    } else if (snakes.containsKey(i + 1)) {
+                        cells[i].setBackground(Color.RED);
+                    }
+                }
+                btnRestart.setEnabled(false);
+                btnRoll.setEnabled(false);
+                btnSurrender.setEnabled(true);
 
             } else {
-                controlPanel.appendText(msg + "\n");
+                txtArea.append(msg + "\n");
             }
         });
+    }
+
+    private void updateBoard() {
+        for (int i = 0; i < 100; i++) {
+            cells[i].setText(String.valueOf(i + 1));
+            cells[i].setBackground(Color.WHITE);
+
+            if (ladders.containsKey(i + 1)) {
+                cells[i].setBackground(Color.GREEN);
+            } else if (snakes.containsKey(i + 1)) {
+                cells[i].setBackground(Color.RED);
+            }
+        }
+
+        for (Map.Entry<String, Integer> entry : positions.entrySet()) {
+            int index = entry.getValue() - 1;
+            if (index >= 0 && index < 100) {
+                String currentText = cells[index].getText();
+                cells[index].setText(currentText + " [" + entry.getKey() + "]");
+                cells[index].setBackground(Color.YELLOW);
+            }
+        }
     }
 
     public static void main(String[] args) {
