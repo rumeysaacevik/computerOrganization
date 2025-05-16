@@ -63,26 +63,26 @@ public class Server {
         }
     }
 
-    public synchronized void removeClient(SClient client) {
-        // 1. Bekleyen kuyruktan çıkar
-        waitingQueue.remove(client);
+public synchronized void removeClient(SClient client) {
+    // 1. Bekleyen kuyruktan çıkar
+    waitingQueue.remove(client);
 
-        // 2. Aktif oyunlardan çıkar (oyun sona ermiş olabilir)
-        GameRoom toRemove = null;
-        for (GameRoom game : activeGames) {
-            if (game.players.contains(client)) {
-                game.players.remove(client);
-                game.broadcast("DISCONNECTED:" + client.clientId);
-                toRemove = game;
-                break;
-            }
+    // 2. Aktif oyunlardan çıkar (oyun sona ermiş olabilir)
+    GameRoom toRemove = null;
+    for (GameRoom game : activeGames) {
+        if (game.players.contains(client)) {
+            game.players.remove(client);
+            game.broadcast("DISCONNECTED:" + client.clientId);
+            toRemove = game;
+            break;
         }
-        if (toRemove != null) {
-            activeGames.remove(toRemove);
-        }
-
-        System.out.println("✂️ " + client.clientId + " bağlantısı kesildi ve sistemden çıkarıldı.");
     }
+    if (toRemove != null) {
+        activeGames.remove(toRemove);
+    }
+
+    System.out.println("✂️ " + client.clientId + " bağlantısı kesildi ve sistemden çıkarıldı.");
+}
 
     public synchronized void addClientToQueue(SClient client) {
         waitingQueue.add(client);
