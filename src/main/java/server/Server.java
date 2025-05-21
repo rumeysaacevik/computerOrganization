@@ -63,26 +63,26 @@ public class Server {
         }
     }
 
-public synchronized void removeClient(SClient client) {
-    // 1. Bekleyen kuyruktan çıkar
-    waitingQueue.remove(client);
+    public synchronized void removeClient(SClient client) {
+        // 1. Bekleyen kuyruktan çıkar
+        waitingQueue.remove(client);
 
-    // 2. Aktif oyunlardan çıkar (oyun sona ermiş olabilir)
-    GameRoom toRemove = null;
-    for (GameRoom game : activeGames) {
-        if (game.players.contains(client)) {
-            game.players.remove(client);
-            game.broadcast("DISCONNECTED:" + client.clientId);
-            toRemove = game;
-            break;
+        // 2. Aktif oyunlardan çıkar (oyun sona ermiş olabilir)
+        GameRoom toRemove = null;
+        for (GameRoom game : activeGames) {
+            if (game.players.contains(client)) {
+                game.players.remove(client);
+                game.broadcast("DISCONNECTED:" + client.clientId);
+                toRemove = game;
+                break;
+            }
         }
-    }
-    if (toRemove != null) {
-        activeGames.remove(toRemove);
-    }
+        if (toRemove != null) {
+            activeGames.remove(toRemove);
+        }
 
-    System.out.println("✂️ " + client.clientId + " bağlantısı kesildi ve sistemden çıkarıldı.");
-}
+        System.out.println("✂️ " + client.clientId + " bağlantısı kesildi ve sistemden çıkarıldı.");
+    }
 
     public synchronized void addClientToQueue(SClient client) {
         waitingQueue.add(client);
@@ -185,6 +185,8 @@ public synchronized void removeClient(SClient client) {
         }
 
         void handleRestartRequest(String fromId) {
+            System.out.println("📨 [SERVER] Restart isteği geldi: " + fromId);
+
             if (restartRequester == null) {
                 restartRequester = fromId;
                 restartVotes.clear();
@@ -192,9 +194,22 @@ public synchronized void removeClient(SClient client) {
 
                 for (SClient p : players) {
                     if (!p.clientId.equals(fromId)) {
+                        System.out.println("➡️ [SERVER] RESTART_REQUEST_FROM gönderiliyor: " + p.clientId);
                         p.send("RESTART_REQUEST_FROM:" + fromId);
                     }
                 }
+            } else if (!restartVotes.contains(fromId)) {
+                // Diğer oyuncu da istek yaptıysa otomatik kabul say
+                System.out.println("🔄 Her iki oyuncu da restart istedi, otomatik olarak kabul ediliyor.");
+                restartVotes.add(fromId);
+                if (restartVotes.size() == players.size()) {
+                    restartGame();
+                    broadcast("RESTART_CONFIRMED");
+                    restartVotes.clear();
+                    restartRequester = null;
+                }
+            } else {
+                System.out.println("⚠️ Zaten istek yapıldı: " + fromId);
             }
         }
 
@@ -202,13 +217,9 @@ public synchronized void removeClient(SClient client) {
             if (!accepted) {
                 broadcast("RESTART_DENIED");
 
-                // restartRequester değerini sakla
-                String requesterId = restartRequester;
-
-                for (SClient player : players) {
-                    if (player.clientId.equals(requesterId)) {
-                        addClientToQueue(player); // Kuyruğa geri al
-                    }
+                // Her iki oyuncuya EXIT mesajı gönder
+                for (SClient p : players) {
+                    p.send("EXIT");
                 }
 
                 activeGames.remove(this); // Odayı kapat
@@ -227,17 +238,16 @@ public synchronized void removeClient(SClient client) {
         }
 
         void handleSurrender(String surrenderingClientId) {
-            broadcast("SURRENDERED: " + surrenderingClientId + " oyundan pes etti.");
-            // Rakip oyuncuyu kazanan ilan et
-            for (SClient player : players) {
-                if (!player.clientId.equals(surrenderingClientId)) {
-                    broadcast("WINNER: " + player.clientId);
-                    break;
-                }
-            }
-            // Oyun sona erdiği için aktif oyunlar listesinden kaldırabilirsiniz
-            activeGames.remove(this);
+    for (SClient player : players) {
+        if (player.clientId.equals(surrenderingClientId)) {
+            player.send("SURRENDERED: Sen oyundan pes ettiniz.");
+        } else {
+            player.send("SURRENDERED: " + surrenderingClientId + " oyundan pes etti.");
+            player.send("WINNER: " + player.clientId);
         }
+    }
+}
+
 
         void broadcast(String msg) {
             for (SClient player : players) {
@@ -258,6 +268,8 @@ public synchronized void removeClient(SClient client) {
             int roll = random.nextInt(6) + 1;
             int oldPos = positions.getOrDefault(clientId, 1);
             int newPos = Math.min(100, oldPos + roll);
+
+            // 🎯 Yılan veya merdiven kontrolü burada olmalı
             newPos = applySnakesAndLadders(newPos);
 
             positions.put(clientId, newPos);
@@ -275,13 +287,17 @@ public synchronized void removeClient(SClient client) {
         int applySnakesAndLadders(int pos) {
             Map<Integer, Integer> map = Map.of(
                     3, 22,
-                    5, 8,
-                    11, 26,
-                    20, 29,
-                    27, 1,
-                    17, 4,
-                    19, 7
+                    8, 30,
+                    28, 84,
+                    58, 77,
+                    75, 86,
+                    97, 78,
+                    89, 67,
+                    62, 19,
+                    36, 6,
+                    25, 5
             );
+
             return map.getOrDefault(pos, pos);
         }
     }

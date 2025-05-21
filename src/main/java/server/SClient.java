@@ -38,40 +38,39 @@ public class SClient extends Thread {
         }
     }
 
-    @Override
-    public void run() {
-        try {
-            String msg;
-            while ((msg = in.readLine()) != null) {
-                if (msg.startsWith("NAME:")) {
-                    String oldId = this.clientId;
-                    String newName = msg.substring(5).trim();
-                    this.clientId = newName;
-                    this.playerName = newName;
-                    server.updateClientId(oldId, this.clientId);
-                    send("WELCOME:" + this.clientId);
-                    server.addClientToQueue(this);
-                } else if (msg.equals("ROLL")) {
-                    server.processRoll(clientId);
-                } else if (msg.equals("RESTART")) {
-                    server.processRestartRequest(clientId);
-                } else if (msg.startsWith("RESTART_RESPONSE:")) {
-                    boolean accepted = msg.substring(17).equalsIgnoreCase("true");
-                    server.processRestartResponse(clientId, accepted);
-                } else if (msg.equals("SURRENDER")) {
-                    server.processSurrender(clientId);
-                }
+   @Override
+public void run() {
+    try {
+        String msg;
+        while ((msg = in.readLine()) != null) {
+            if (msg.startsWith("NAME:")) {
+                String oldId = this.clientId;
+                String newName = msg.substring(5).trim();
+                this.clientId = newName;
+                this.playerName = newName;
+                server.updateClientId(oldId, this.clientId);
+                send("WELCOME:" + this.clientId);
+                server.addClientToQueue(this);
+            } else if (msg.equals("ROLL")) {
+                server.processRoll(clientId);
+            } else if (msg.equals("RESTART")) {
+                server.processRestartRequest(clientId);
+            } else if (msg.startsWith("RESTART_RESPONSE:")) {
+                boolean accepted = msg.substring(17).equalsIgnoreCase("true");
+                server.processRestartResponse(clientId, accepted);
+            } else if (msg.equals("SURRENDER")) {
+                server.processSurrender(clientId);
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                socket.close(); // Bağlantıyı kapat
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-            server.removeClient(this); // Sunucudan bu istemciyi sil
         }
+    } catch (IOException e) {
+        e.printStackTrace();
+    } finally {
+        try {
+            socket.close(); // Bağlantıyı kapat
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        server.removeClient(this); // Sunucudan bu istemciyi sil
     }
-
+}
 }
