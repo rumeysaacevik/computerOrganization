@@ -14,14 +14,13 @@ import java.util.*;
  * @author Rümeysa
  */
 
-
 public class Server {
 
     private ServerSocket serverSocket;
     private final List<SClient> waitingQueue = new ArrayList<>();
     private final List<GameRoom> activeGames = new ArrayList<>();
 
-    // CHAT: Chat mesajını ilgili odadaki tüm oyunculara iletir
+    // Sends chat messages to all players in the same room
     public void sendChatToRoom(SClient sender, String chatMsg) {
         GameRoom room = findRoomOfClient(sender);
         if (room != null) {
@@ -29,11 +28,11 @@ public class Server {
                 p.send("CHAT:" + chatMsg);
             }
         } else {
-            System.out.println("[WARN] Chat gönderecek room bulunamadı!");
+            System.out.println("[WARN] Could not find a room for chat!");
         }
     }
 
-    // Hangi odada olduğunu bulur
+    // Finds which room the client belongs to
     private GameRoom findRoomOfClient(SClient client) {
         for (GameRoom game : activeGames) {
             if (game.players.contains(client)) {
@@ -48,7 +47,7 @@ public class Server {
     }
 
     public void start() {
-        System.out.println("Sunucu başladı.");
+        System.out.println("Server started.");
         new Thread(this::listenForClients).start();
     }
 
@@ -75,15 +74,15 @@ public class Server {
             activeGames.add(newGame);
             newGame.start();
         } else {
-            client.send("WAITING: Oyun için başka bir oyuncu bekleniyor...");
+            client.send("WAITING: Waiting for another player to join the game...");
         }
     }
 
     public synchronized void removeClient(SClient client) {
-        // Bekleyen kuyruktan çıkar
+        // Remove from waiting queue
         waitingQueue.remove(client);
 
-        // Aktif oyunlardan çıkar
+        // Remove from active games
         GameRoom toRemove = null;
         for (GameRoom game : activeGames) {
             if (game.players.contains(client)) {
@@ -97,11 +96,11 @@ public class Server {
             activeGames.remove(toRemove);
         }
 
-        System.out.println("✂️ " + client.clientId + " bağlantısı kesildi ve sistemden çıkarıldı.");
+        System.out.println("✂️ " + client.clientId + " disconnected and removed from the system.");
     }
 
     public synchronized void updateClientId(String oldId, String newId) {
-        // Kuyruktaki oyuncuların ID'sini güncelle
+        // Update ID in waiting queue
         for (SClient client : waitingQueue) {
             if (client.clientId.equals(oldId)) {
                 client.clientId = newId;
@@ -109,7 +108,7 @@ public class Server {
                 return;
             }
         }
-        // Aktif oyunlardaki oyuncuların ID'sini güncelle
+        // Update ID in active games
         for (GameRoom game : activeGames) {
             for (SClient player : game.players) {
                 if (player.clientId.equals(oldId)) {
@@ -176,7 +175,7 @@ public class Server {
         }
     }
 
-    // ---- İç Sınıf: GameRoom ----
+    // ---- Inner Class: GameRoom ----
     private class GameRoom {
 
         List<SClient> players;
@@ -195,7 +194,7 @@ public class Server {
         }
 
         void start() {
-            broadcast("MATCHED: Eşleşme tamamlandı!");
+            broadcast("MATCHED: Match found!");
             sendTurnToCurrentPlayer();
         }
 
@@ -204,12 +203,12 @@ public class Server {
                 positions.put(p.clientId, 1);
             }
             currentPlayerIndex = 0;
-            broadcast("NEW_GAME: Yeni oyun başlatıldı!");
+            broadcast("NEW_GAME: New game started!");
             sendTurnToCurrentPlayer();
         }
 
         void handleRestartRequest(String fromId) {
-            System.out.println("📨 [SERVER] Restart isteği geldi: " + fromId);
+            System.out.println("📨 [SERVER] Restart request received: " + fromId);
 
             if (restartRequester == null) {
                 restartRequester = fromId;
@@ -218,12 +217,12 @@ public class Server {
 
                 for (SClient p : players) {
                     if (!p.clientId.equals(fromId)) {
-                        System.out.println("➡️ [SERVER] RESTART_REQUEST_FROM gönderiliyor: " + p.clientId);
+                        System.out.println("➡️ [SERVER] Sending RESTART_REQUEST_FROM to: " + p.clientId);
                         p.send("RESTART_REQUEST_FROM:" + fromId);
                     }
                 }
             } else if (!restartVotes.contains(fromId)) {
-                System.out.println("🔄 Her iki oyuncu da restart istedi, otomatik olarak kabul ediliyor.");
+                System.out.println("🔄 Both players requested restart, automatically accepted.");
                 restartVotes.add(fromId);
                 if (restartVotes.size() == players.size()) {
                     restartGame();
@@ -232,7 +231,7 @@ public class Server {
                     restartRequester = null;
                 }
             } else {
-                System.out.println("⚠️ Zaten istek yapıldı: " + fromId);
+                System.out.println("⚠️ Restart already requested: " + fromId);
             }
         }
 
@@ -259,9 +258,9 @@ public class Server {
         void handleSurrender(String surrenderingClientId) {
             for (SClient player : players) {
                 if (player.clientId.equals(surrenderingClientId)) {
-                    player.send("SURRENDERED: Sen oyundan pes ettiniz.");
+                    player.send("SURRENDERED: You surrendered the game.");
                 } else {
-                    player.send("SURRENDERED: " + surrenderingClientId + " oyundan pes etti.");
+                    player.send("SURRENDERED: " + surrenderingClientId + " has surrendered the game.");
                     player.send("WINNER: " + player.clientId);
                 }
             }
@@ -305,7 +304,7 @@ public class Server {
             Map<Integer, Integer> map = Map.of(
                     3, 22,
                     8, 30,
-                    28, 84,
+                    33, 65,
                     58, 77,
                     75, 86,
                     97, 78,

@@ -9,12 +9,14 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import javax.imageio.ImageIO;
 
 /**
  *
  * @author Rümeysa
  */
+
 public class LoginScreen extends JFrame {
 
     private JTextField nameField;
@@ -100,85 +102,14 @@ public class LoginScreen extends JFrame {
         });
         panel.add(startBtn);
 
-        // 🎲 Dice image from Desktop with opacity
-        try {
-            String path = "C:/Users/alpce/OneDrive/Masaüstü/dice.png";
-            File imageFile = new File(path);
-            if (!imageFile.exists()) {
-                System.out.println("❌ File not found: " + path);
-            } else {
-                BufferedImage originalImage = ImageIO.read(imageFile);
+        // 🎲 Dice image (resources/pieces/dice.png) -- %50 opacity
+        addImageWithOpacity(panel, "/pieces/dice.png", 500, 270, 100, 100, 0.5f);
 
-                BufferedImage transparentImage = new BufferedImage(
-                        originalImage.getWidth(),
-                        originalImage.getHeight(),
-                        BufferedImage.TYPE_INT_ARGB
-                );
+        // 🐍 Snake image (resources/pieces/snake_transparent.png)
+        addImageWithOpacity(panel, "/pieces/snakes.png", 10, 150, 160, 160, 0.5f);
 
-                Graphics2D g2d = transparentImage.createGraphics();
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
-                g2d.drawImage(originalImage, 0, 0, null);
-                g2d.dispose();
-
-                Image scaledImage = transparentImage.getScaledInstance(100, 100, Image.SCALE_SMOOTH);
-                JLabel diceLabel = new JLabel(new ImageIcon(scaledImage));
-                diceLabel.setBounds(500, 270, 100, 100);
-                panel.add(diceLabel);
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        // 🐍 Snake image (left side)
-        try {
-            String snakePath = "C:/Users/alpce/OneDrive/Masaüstü/snakes.png";
-            File snakeFile = new File(snakePath);
-            if (!snakeFile.exists()) {
-                System.out.println("❌ Snake image not found: " + snakePath);
-            } else {
-                BufferedImage snakeImage = ImageIO.read(snakeFile);
-                BufferedImage transparentSnake = new BufferedImage(
-                        snakeImage.getWidth(), snakeImage.getHeight(), BufferedImage.TYPE_INT_ARGB
-                );
-                Graphics2D g2dSnake = transparentSnake.createGraphics();
-                g2dSnake.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
-                g2dSnake.drawImage(snakeImage, 0, 0, null);
-                g2dSnake.dispose();
-
-                Image scaledSnake = transparentSnake.getScaledInstance(160, 160, Image.SCALE_SMOOTH);
-                JLabel snakeLabel = new JLabel(new ImageIcon(scaledSnake));
-                snakeLabel.setBounds(10, 150, 160, 160);  // 👈 sol üst köşeye daha yakın
-                panel.add(snakeLabel);
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-
-        // 🪜 Ladder image (upper right corner - larger and shifted left)
-        try {
-            String ladderPath = "C:/Users/alpce/OneDrive/Masaüstü/ladders.png";
-            File ladderFile = new File(ladderPath);
-            if (!ladderFile.exists()) {
-                System.out.println("❌ Ladder image not found: " + ladderPath);
-            } else {
-                BufferedImage ladderImage = ImageIO.read(ladderFile);
-                BufferedImage transparentLadder = new BufferedImage(
-                        ladderImage.getWidth(), ladderImage.getHeight(), BufferedImage.TYPE_INT_ARGB
-                );
-
-                Graphics2D g2dLadder = transparentLadder.createGraphics();
-                g2dLadder.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f)); // %50 opacity
-                g2dLadder.drawImage(ladderImage, 0, 0, null);
-                g2dLadder.dispose();
-
-                // 👇 Boyut büyütüldü
-                Image scaledLadder = transparentLadder.getScaledInstance(160, 160, Image.SCALE_SMOOTH);
-                JLabel ladderLabel = new JLabel(new ImageIcon(scaledLadder));
-                ladderLabel.setBounds(440, 120, 160, 160); // 👈 Daha büyük ve biraz sola çekildi
-                panel.add(ladderLabel);
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+        // 🪜 Ladder image (resources/pieces/ladder.png)
+        addImageWithOpacity(panel, "/pieces/ladders.png", 440, 120, 160, 160, 0.5f);
 
         // 🔁 Scrolling text at bottom
         ScrollingText scroller = new ScrollingText();
@@ -186,6 +117,34 @@ public class LoginScreen extends JFrame {
         panel.add(scroller);
 
         setVisible(true);
+    }
+
+    // REUSABLE: Add image with opacity from resource
+    private void addImageWithOpacity(JPanel panel, String resourcePath, int x, int y, int w, int h, float opacity) {
+        try {
+            java.net.URL imgUrl = getClass().getResource(resourcePath);
+            if (imgUrl == null) {
+                System.out.println("❌ Resource not found: " + resourcePath);
+                return;
+            }
+            BufferedImage originalImage = ImageIO.read(imgUrl);
+            BufferedImage transparentImage = new BufferedImage(
+                    originalImage.getWidth(),
+                    originalImage.getHeight(),
+                    BufferedImage.TYPE_INT_ARGB
+            );
+            Graphics2D g2d = transparentImage.createGraphics();
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
+            g2d.drawImage(originalImage, 0, 0, null);
+            g2d.dispose();
+
+            Image scaledImage = transparentImage.getScaledInstance(w, h, Image.SCALE_SMOOTH);
+            JLabel label = new JLabel(new ImageIcon(scaledImage));
+            label.setBounds(x, y, w, h);
+            panel.add(label);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 
     private void styleIconButton(JButton btn) {
@@ -196,7 +155,6 @@ public class LoginScreen extends JFrame {
     }
 
     static class GradientPanel extends JPanel {
-
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);

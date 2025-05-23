@@ -22,13 +22,12 @@ import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
  */
 public class GUIClient extends JFrame {
 
-    // Alanlar
     private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
 
-    private JTextArea logArea;   // Oyun eventleri/logları
-    private JTextArea chatArea;  // Sadece chat
+    private JTextArea logArea;
+    private JTextArea chatArea;
     private JButton btnRoll, btnSurrender, btnRestart;
     private BoardPanel boardPanel;
     private String myId = "";
@@ -36,45 +35,40 @@ public class GUIClient extends JFrame {
     private String playerName;
     private LinkedHashMap<String, Integer> positions = new LinkedHashMap<>();
     private final ImageIcon iconB, iconR;
-    private Image ladderImg, snakeImg;
+    private final Image ladderImg, snakeImg;
     private String activePlayerId = null;
-     private String serverIp;
+    private String serverIp;
 
-    // Merdivenler ve yılanlar
     private final Map<Integer, Integer> ladders = Map.of(
-            3, 22, 8, 30, 28, 84, 58, 77, 75, 86
+            3, 22, 8, 30, 33, 65, 58, 77, 75, 86
     );
+
     private final Map<Integer, Integer> snakes = Map.of(
             97, 78, 89, 67, 62, 19, 36, 6, 25, 5
     );
 
     public GUIClient(String name, String serverIp) {
         this.playerName = name;
-         this.serverIp = serverIp;
+        this.serverIp = serverIp;
 
         setTitle("Snakes and Ladders - Client");
         setSize(950, 750);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        iconB = new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/playerB.png");
-        iconR = new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/playerR.png");
-        try {
-            ladderImg = new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/ladder.png").getImage();
-            snakeImg = new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/snake_transparent.png").getImage();
-        } catch (Exception e) {
-            ladderImg = null;
-            snakeImg = null;
-        }
+        // Images from resources
+        iconB = new ImageIcon(getClass().getResource("/pieces/playerB.png"));
+        iconR = new ImageIcon(getClass().getResource("/pieces/playerR.png"));
+        ladderImg = new ImageIcon(getClass().getResource("/pieces/ladder.png")).getImage();
+        snakeImg = new ImageIcon(getClass().getResource("/pieces/snake_transparent.png")).getImage();
 
         boardPanel = new BoardPanel(ladders, snakes, positions, iconB, iconR, ladderImg, snakeImg);
         add(boardPanel, BorderLayout.CENTER);
 
-        // ==== SAĞ PANEL: Chat + Log ====
+        // ==== RIGHT PANEL: Chat + Log ====
         JPanel rightPanel = new JPanel(new BorderLayout(5, 5));
 
-        // 1. Hazır mesajlar
-        String[] presetMsgs = {"İyi oyunlar!", "Bol şans!", "Seri lütfen!", "Güzel hamle!", "Teşekkürler!", "Üzgünüm 😅"};
+        String[] presetMsgs = {"Good luck!", "Well played!", "Faster please!", "I have to go!", "Thank you!", "Sorry 😅"};
         JPanel presetPanel = new JPanel(new GridLayout(2, 3, 3, 3));
         for (String msg : presetMsgs) {
             JButton btn = new JButton(msg);
@@ -84,19 +78,17 @@ public class GUIClient extends JFrame {
         }
         rightPanel.add(presetPanel, BorderLayout.NORTH);
 
-        // 2. Chat Area (Sadece chat mesajları)
         chatArea = new JTextArea(7, 25);
         chatArea.setEditable(false);
         chatArea.setFont(new Font("SansSerif", Font.PLAIN, 13));
         JScrollPane chatScroll = new JScrollPane(chatArea);
-        chatScroll.setBorder(BorderFactory.createTitledBorder("Mesajlar"));
+        chatScroll.setBorder(BorderFactory.createTitledBorder("Messages"));
         rightPanel.add(chatScroll, BorderLayout.CENTER);
 
-        // 3. Chat Input
         JPanel chatInputPanel = new JPanel(new BorderLayout(3, 0));
         JTextField chatField = new JTextField();
         chatField.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        JButton sendBtn = new JButton("Gönder");
+        JButton sendBtn = new JButton("Send");
         sendBtn.addActionListener(e -> {
             String msg = chatField.getText().trim();
             if (!msg.isEmpty()) {
@@ -108,31 +100,29 @@ public class GUIClient extends JFrame {
         chatInputPanel.add(sendBtn, BorderLayout.EAST);
         rightPanel.add(chatInputPanel, BorderLayout.SOUTH);
 
-        // 4. Log Alanı (Oyun olayları/log)
         logArea = new JTextArea(11, 25);
         logArea.setEditable(false);
         logArea.setFont(new Font("Consolas", Font.PLAIN, 13));
         JScrollPane logScroll = new JScrollPane(logArea);
-        logScroll.setBorder(BorderFactory.createTitledBorder("Oyun"));
+        logScroll.setBorder(BorderFactory.createTitledBorder("Game Log"));
 
-        // SAĞ PANEL BİLEŞİK
         JPanel eastWrap = new JPanel(new BorderLayout(5, 5));
         eastWrap.add(rightPanel, BorderLayout.NORTH);
         eastWrap.add(logScroll, BorderLayout.CENTER);
 
         add(eastWrap, BorderLayout.EAST);
 
-        // ==== ALT PANEL ====
+        // ==== BOTTOM PANEL ====
         JPanel southPanel = new JPanel();
 
-        ImageIcon diceIcon = new ImageIcon(new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/dice.png").getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH));
+        ImageIcon diceIcon = new ImageIcon(new ImageIcon(getClass().getResource("/pieces/dice.png")).getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH));
         btnRoll = new JButton(diceIcon);
         btnRoll.setEnabled(false);
         btnRoll.setContentAreaFilled(false);
         btnRoll.setBorderPainted(false);
         btnRoll.setFocusPainted(false);
         btnRoll.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnRoll.setToolTipText("Zar At");
+        btnRoll.setToolTipText("Roll Dice");
         btnRoll.addActionListener(e -> {
             playDiceSound();
             out.println("ROLL");
@@ -140,10 +130,10 @@ public class GUIClient extends JFrame {
         });
         southPanel.add(btnRoll);
 
-        ImageIcon restartIcon = new ImageIcon(new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/restart.png").getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH));
+        ImageIcon restartIcon = new ImageIcon(new ImageIcon(getClass().getResource("/pieces/restart.png")).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH));
         btnRestart = new JButton(restartIcon);
         btnRestart.setEnabled(false);
-        btnRestart.setToolTipText("Yeni Oyuna Başla");
+        btnRestart.setToolTipText("Start New Game");
         btnRestart.setContentAreaFilled(false);
         btnRestart.setBorderPainted(false);
         btnRestart.setFocusPainted(false);
@@ -151,13 +141,13 @@ public class GUIClient extends JFrame {
         btnRestart.addActionListener(e -> {
             out.println("RESTART");
             btnRestart.setEnabled(false);
-            logArea.append("Yeni oyun isteği gönderildi.\n");
+            logArea.append("New game request sent.\n");
         });
         southPanel.add(btnRestart);
 
-        ImageIcon flagIcon = new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/flag (1).png");
+        ImageIcon flagIcon = new ImageIcon(getClass().getResource("/pieces/flag.png"));
         btnSurrender = new JButton(flagIcon);
-        btnSurrender.setToolTipText("Pes Et");
+        btnSurrender.setToolTipText("Surrender");
         btnSurrender.setEnabled(false);
         btnSurrender.setContentAreaFilled(false);
         btnSurrender.setBorderPainted(false);
@@ -167,7 +157,7 @@ public class GUIClient extends JFrame {
             out.println("SURRENDER");
             btnSurrender.setEnabled(false);
             btnRoll.setEnabled(false);
-            logArea.append("Oyundan pes ettiniz.\n");
+            logArea.append("You surrendered.\n");
         });
         southPanel.add(btnSurrender);
 
@@ -177,21 +167,25 @@ public class GUIClient extends JFrame {
         connectToServer();
     }
 
+    // ---- Play dice sound from resources ----
     private void playDiceSound() {
         try {
-            File soundFile = new File("C:/Users/alpce/OneDrive/Masaüstü/MANYDICE.wav");
-            AudioInputStream audioIn = AudioSystem.getAudioInputStream(soundFile);
+            InputStream audioSrc = getClass().getResourceAsStream("/sounds/MANYDICE.wav");
+            if (audioSrc == null) {
+                throw new FileNotFoundException("Sound file not found!");
+            }
+            AudioInputStream audioIn = AudioSystem.getAudioInputStream(new BufferedInputStream(audioSrc));
             Clip clip = AudioSystem.getClip();
             clip.open(audioIn);
             clip.start();
         } catch (Exception e) {
-            System.err.println("Zar sesi çalınamadı!");
+            System.err.println("Dice sound could not be played!");
         }
     }
 
-   private void connectToServer() {
+    private void connectToServer() {
         try {
-            socket = new Socket(serverIp, 5000); // ← Burada artık dinamik IP!
+            socket = new Socket(serverIp, 5000);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
             out.println("NAME:" + playerName);
@@ -202,11 +196,11 @@ public class GUIClient extends JFrame {
                         processMessage(line);
                     }
                 } catch (IOException e) {
-                    logArea.append("Bağlantı koptu...\n");
+                    logArea.append("Connection lost...\n");
                 }
             }).start();
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(this, "Sunucuya bağlanılamadı.");
+            JOptionPane.showMessageDialog(this, "Could not connect to server.");
         }
     }
 
@@ -226,9 +220,9 @@ public class GUIClient extends JFrame {
                 btnRoll.setEnabled(myTurn);
                 btnSurrender.setEnabled(true);
                 if (myTurn) {
-                    logArea.append("\n🎯 Sıra sende! Zar atma zamanı! 🎲\n");
+                    logArea.append("\n🎯 It's your turn! Roll the dice! 🎲\n");
                 } else {
-                    logArea.append("🟢 Sıra: " + activeId + "\n");
+                    logArea.append("🟢 Turn: " + activeId + "\n");
                 }
             } else if (msg.startsWith("CHAT:")) {
                 String chatMsg = msg.substring(5);
@@ -246,16 +240,16 @@ public class GUIClient extends JFrame {
                         positions.replace(player, pos);
                     }
                     updateBoard();
-                    logArea.append(player + " zar attı: " + roll + ", Yeni konum: " + pos + "\n");
+                    logArea.append(player + " rolled: " + roll + ", New position: " + pos + "\n");
                 }
             } else if (msg.startsWith("WINNER:")) {
                 String winner = msg.substring(7).trim();
-                logArea.append("🏆 Kazanan: " + winner + "\n");
+                logArea.append("🏆 Winner: " + winner + "\n");
                 btnRoll.setEnabled(false);
                 btnSurrender.setEnabled(false);
                 btnRestart.setEnabled(true);
                 if (winner.equals(myId)) {
-                    // --- Modern Kazanan Popup ---
+                    // --- Winner Popup ---
                     JPanel panel = new JPanel();
                     panel.setBackground(new Color(255, 247, 230));
                     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -269,13 +263,13 @@ public class GUIClient extends JFrame {
                     fireworks.setAlignmentX(Component.CENTER_ALIGNMENT);
 
                     JLabel congrats = new JLabel("<html><div style='text-align:center;'>"
-                            + "<span style='font-size:28pt; font-weight:bold; color:#ca8000;'>Tebrikler<br>"
+                            + "<span style='font-size:28pt; font-weight:bold; color:#ca8000;'>Congratulations<br>"
                             + winner + "!</span></div></html>", SwingConstants.CENTER);
                     congrats.setFont(new Font("Segoe UI", Font.BOLD, 26));
                     congrats.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-                    JLabel sub = new JLabel("Oyunu kazandın! 🎲", SwingConstants.CENTER);
-                    sub.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+                    JLabel sub = new JLabel("You won the game! 🎲", SwingConstants.CENTER);
+                    sub.setFont(new Font("SansSerif", Font.PLAIN, 16));
                     sub.setForeground(new Color(120, 120, 120));
                     sub.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -290,7 +284,7 @@ public class GUIClient extends JFrame {
                     JOptionPane.showMessageDialog(
                             this,
                             panel,
-                            "🏆 Oyun Bitti!",
+                            "🏆 Game Over!",
                             JOptionPane.PLAIN_MESSAGE
                     );
                 }
@@ -303,16 +297,16 @@ public class GUIClient extends JFrame {
             } else if (msg.startsWith("RESTART_REQUEST_FROM:")) {
                 String fromPlayer = msg.substring("RESTART_REQUEST_FROM:".length()).trim();
                 int response = JOptionPane.showConfirmDialog(
-                        this, fromPlayer + " yeni bir oyun başlatmak istiyor. Kabul ediyor musunuz?",
-                        "Yeni Oyun Daveti", JOptionPane.YES_NO_OPTION);
+                        this, fromPlayer + " wants to start a new game. Do you accept?",
+                        "New Game Invitation", JOptionPane.YES_NO_OPTION);
                 out.println("RESTART_RESPONSE:" + (response == JOptionPane.YES_OPTION ? "true" : "false"));
             } else if (msg.startsWith("RESTART_CONFIRMED")) {
-                logArea.append("✅ Her iki oyuncu kabul etti. Yeni oyun başlıyor!\n");
+                logArea.append("✅ Both players accepted. New game is starting!\n");
             } else if (msg.startsWith("RESTART_DENIED")) {
-                logArea.append("❌ Rakip yeni oyunu kabul etmedi.\n");
+                logArea.append("❌ Opponent did not accept the new game.\n");
                 btnRestart.setEnabled(true);
             } else if (msg.startsWith("NEW_GAME:")) {
-                logArea.append("🎲 Yeni oyun başlatıldı!\n");
+                logArea.append("🎲 New game started!\n");
                 positions.clear();
                 updateBoard();
                 btnRestart.setEnabled(false);
@@ -376,8 +370,11 @@ public class GUIClient extends JFrame {
                 g.setColor(Color.GRAY);
                 g.drawRect(xy[0], xy[1], cellSize, cellSize);
                 g.setColor(Color.BLACK);
-                g.setFont(new Font("SansSerif", Font.PLAIN, 12));
-                g.drawString(String.valueOf(i + 1), xy[0] + 5, xy[1] + 15);
+                // Daha belirgin font, kalın ve büyük
+                g.setFont(new Font("SansSerif", Font.BOLD, cellSize / 3 + 6));
+                g.setColor(new Color(30, 30, 30)); // Çok koyu gri, istersen Color.BLACK de olur
+                g.drawString(String.valueOf(i + 1), xy[0] + 8, xy[1] + 24);
+
             }
             Graphics2D g2 = (Graphics2D) g;
             if (ladderImg != null) {
@@ -416,7 +413,7 @@ public class GUIClient extends JFrame {
             }
             int w = (cellSize * cols) / 2;
 
-            // 1. Oyuncu
+            // Player 1
             String name1 = names[0];
             boolean turn1 = name1.equals(activePlayer);
             if (turn1) {
@@ -433,7 +430,7 @@ public class GUIClient extends JFrame {
             g.setFont(new Font("SansSerif", turn1 ? Font.BOLD : Font.PLAIN, cellSize / 3));
             drawCenteredString(g, "🔴 " + name1, x, y, w, barH);
 
-            // 2. Oyuncu
+            // Player 2
             if (names.length > 1) {
                 String name2 = names[1];
                 boolean turn2 = name2.equals(activePlayer);
@@ -475,15 +472,22 @@ public class GUIClient extends JFrame {
         }
 
         private void drawImageBetween(Graphics2D g2, Image img, int x1, int y1, int x2, int y2, int cellSize) {
+            // Uç noktaları kutunun ortasına sabitle
             double dx = x2 - x1, dy = y2 - y1, distance = Math.hypot(dx, dy);
             double angle = Math.atan2(dy, dx);
-            int imgW = (int) (cellSize * 0.7), imgH = (int) distance;
+
+            int imgW = (int) (cellSize * 0.6);  // Daha ince merdiven için gerekirse ayarla
+            int imgH = (int) distance;
+
             g2 = (Graphics2D) g2.create();
             g2.translate(x1, y1);
             g2.rotate(angle - Math.PI / 2);
+
+            // Merdivenin tam ucu kutunun merkezinden başlasın/çıksın
             g2.drawImage(img, -imgW / 2, 0, imgW, imgH, null);
             g2.dispose();
         }
+
     }
 
     private void sendChat(String message) {
