@@ -13,11 +13,35 @@ import java.util.*;
  *
  * @author Rümeysa
  */
+
+
 public class Server {
 
     private ServerSocket serverSocket;
     private final List<SClient> waitingQueue = new ArrayList<>();
     private final List<GameRoom> activeGames = new ArrayList<>();
+
+    // CHAT: Chat mesajını ilgili odadaki tüm oyunculara iletir
+    public void sendChatToRoom(SClient sender, String chatMsg) {
+        GameRoom room = findRoomOfClient(sender);
+        if (room != null) {
+            for (SClient p : room.players) {
+                p.send("CHAT:" + chatMsg);
+            }
+        } else {
+            System.out.println("[WARN] Chat gönderecek room bulunamadı!");
+        }
+    }
+
+    // Hangi odada olduğunu bulur
+    private GameRoom findRoomOfClient(SClient client) {
+        for (GameRoom game : activeGames) {
+            if (game.players.contains(client)) {
+                return game;
+            }
+        }
+        return null;
+    }
 
     public Server(int port) throws IOException {
         serverSocket = new ServerSocket(port);
@@ -26,6 +50,75 @@ public class Server {
     public void start() {
         System.out.println("Sunucu başladı.");
         new Thread(this::listenForClients).start();
+    }
+
+    private void listenForClients() {
+        try {
+            while (true) {
+                Socket socket = serverSocket.accept();
+                String clientId = "Player" + (waitingQueue.size() + activeGames.size() * 2 + 1);
+                SClient client = new SClient(socket, this, clientId);
+                client.start();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public synchronized void addClientToQueue(SClient client) {
+        waitingQueue.add(client);
+        if (waitingQueue.size() >= 2) {
+            List<SClient> playersForGame = new ArrayList<>(waitingQueue.subList(0, 2));
+            waitingQueue.subList(0, 2).clear();
+
+            GameRoom newGame = new GameRoom(playersForGame);
+            activeGames.add(newGame);
+            newGame.start();
+        } else {
+            client.send("WAITING: Oyun için başka bir oyuncu bekleniyor...");
+        }
+    }
+
+    public synchronized void removeClient(SClient client) {
+        // Bekleyen kuyruktan çıkar
+        waitingQueue.remove(client);
+
+        // Aktif oyunlardan çıkar
+        GameRoom toRemove = null;
+        for (GameRoom game : activeGames) {
+            if (game.players.contains(client)) {
+                game.players.remove(client);
+                game.broadcast("DISCONNECTED:" + client.clientId);
+                toRemove = game;
+                break;
+            }
+        }
+        if (toRemove != null) {
+            activeGames.remove(toRemove);
+        }
+
+        System.out.println("✂️ " + client.clientId + " bağlantısı kesildi ve sistemden çıkarıldı.");
+    }
+
+    public synchronized void updateClientId(String oldId, String newId) {
+        // Kuyruktaki oyuncuların ID'sini güncelle
+        for (SClient client : waitingQueue) {
+            if (client.clientId.equals(oldId)) {
+                client.clientId = newId;
+                client.playerName = newId;
+                return;
+            }
+        }
+        // Aktif oyunlardaki oyuncuların ID'sini güncelle
+        for (GameRoom game : activeGames) {
+            for (SClient player : game.players) {
+                if (player.clientId.equals(oldId)) {
+                    player.clientId = newId;
+                    player.playerName = newId;
+                    return;
+                }
+            }
+        }
     }
 
     public synchronized void processRestartRequest(String clientId) {
@@ -44,75 +137,6 @@ public class Server {
             for (SClient player : game.players) {
                 if (player.clientId.equals(clientId)) {
                     game.handleRestartResponse(clientId, accepted);
-                    return;
-                }
-            }
-        }
-    }
-
-    private void listenForClients() {
-        try {
-            while (true) {
-                Socket socket = serverSocket.accept();
-                String clientId = "Player" + (waitingQueue.size() + activeGames.size() * 2 + 1);
-                SClient client = new SClient(socket, this, clientId);
-                client.start();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public synchronized void removeClient(SClient client) {
-        // 1. Bekleyen kuyruktan çıkar
-        waitingQueue.remove(client);
-
-        // 2. Aktif oyunlardan çıkar (oyun sona ermiş olabilir)
-        GameRoom toRemove = null;
-        for (GameRoom game : activeGames) {
-            if (game.players.contains(client)) {
-                game.players.remove(client);
-                game.broadcast("DISCONNECTED:" + client.clientId);
-                toRemove = game;
-                break;
-            }
-        }
-        if (toRemove != null) {
-            activeGames.remove(toRemove);
-        }
-
-        System.out.println("✂️ " + client.clientId + " bağlantısı kesildi ve sistemden çıkarıldı.");
-    }
-
-    public synchronized void addClientToQueue(SClient client) {
-        waitingQueue.add(client);
-        if (waitingQueue.size() >= 2) {
-            List<SClient> playersForGame = new ArrayList<>(waitingQueue.subList(0, 2));
-            waitingQueue.subList(0, 2).clear();
-
-            GameRoom newGame = new GameRoom(playersForGame);
-            activeGames.add(newGame);
-            newGame.start();
-        } else {
-            client.send("WAITING: Oyun için başka bir oyuncu bekleniyor...");
-        }
-    }
-
-    public synchronized void updateClientId(String oldId, String newId) {
-        // Kuyruktaki oyuncuların ID'sini güncelle
-        for (SClient client : waitingQueue) {
-            if (client.clientId.equals(oldId)) {
-                client.clientId = newId;
-                client.playerName = newId;
-                return;
-            }
-        }
-        // Aktif oyunlardaki oyuncuların ID'sini güncelle
-        for (GameRoom game : activeGames) {
-            for (SClient player : game.players) {
-                if (player.clientId.equals(oldId)) {
-                    player.clientId = newId;
-                    player.playerName = newId;
                     return;
                 }
             }
@@ -152,6 +176,7 @@ public class Server {
         }
     }
 
+    // ---- İç Sınıf: GameRoom ----
     private class GameRoom {
 
         List<SClient> players;
@@ -175,7 +200,6 @@ public class Server {
         }
 
         void restartGame() {
-            // Pozisyonları sıfırla
             for (SClient p : players) {
                 positions.put(p.clientId, 1);
             }
@@ -199,7 +223,6 @@ public class Server {
                     }
                 }
             } else if (!restartVotes.contains(fromId)) {
-                // Diğer oyuncu da istek yaptıysa otomatik kabul say
                 System.out.println("🔄 Her iki oyuncu da restart istedi, otomatik olarak kabul ediliyor.");
                 restartVotes.add(fromId);
                 if (restartVotes.size() == players.size()) {
@@ -216,20 +239,16 @@ public class Server {
         void handleRestartResponse(String fromId, boolean accepted) {
             if (!accepted) {
                 broadcast("RESTART_DENIED");
-
-                // Her iki oyuncuya EXIT mesajı gönder
                 for (SClient p : players) {
                     p.send("EXIT");
                 }
-
-                activeGames.remove(this); // Odayı kapat
+                activeGames.remove(this);
                 restartVotes.clear();
                 restartRequester = null;
                 return;
             }
-
             restartVotes.add(fromId);
-            if (restartVotes.size() == 2) {
+            if (restartVotes.size() == players.size()) {
                 restartGame();
                 broadcast("RESTART_CONFIRMED");
                 restartVotes.clear();
@@ -238,16 +257,15 @@ public class Server {
         }
 
         void handleSurrender(String surrenderingClientId) {
-    for (SClient player : players) {
-        if (player.clientId.equals(surrenderingClientId)) {
-            player.send("SURRENDERED: Sen oyundan pes ettiniz.");
-        } else {
-            player.send("SURRENDERED: " + surrenderingClientId + " oyundan pes etti.");
-            player.send("WINNER: " + player.clientId);
+            for (SClient player : players) {
+                if (player.clientId.equals(surrenderingClientId)) {
+                    player.send("SURRENDERED: Sen oyundan pes ettiniz.");
+                } else {
+                    player.send("SURRENDERED: " + surrenderingClientId + " oyundan pes etti.");
+                    player.send("WINNER: " + player.clientId);
+                }
+            }
         }
-    }
-}
-
 
         void broadcast(String msg) {
             for (SClient player : players) {
@@ -269,7 +287,6 @@ public class Server {
             int oldPos = positions.getOrDefault(clientId, 1);
             int newPos = Math.min(100, oldPos + roll);
 
-            // 🎯 Yılan veya merdiven kontrolü burada olmalı
             newPos = applySnakesAndLadders(newPos);
 
             positions.put(clientId, newPos);
@@ -297,7 +314,6 @@ public class Server {
                     36, 6,
                     25, 5
             );
-
             return map.getOrDefault(pos, pos);
         }
     }

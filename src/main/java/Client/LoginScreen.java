@@ -18,6 +18,7 @@ import javax.imageio.ImageIO;
 public class LoginScreen extends JFrame {
 
     private JTextField nameField;
+    private JTextField ipField; // Sunucu IP girişi
 
     public LoginScreen() {
         setTitle("Snakes and Ladders - Login");
@@ -58,29 +59,43 @@ public class LoginScreen extends JFrame {
         JLabel nameLabel = new JLabel("Enter your name:");
         nameLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         nameLabel.setForeground(Color.DARK_GRAY);
-        nameLabel.setBounds(240, 130, 200, 30);
+        nameLabel.setBounds(240, 110, 200, 30);
         panel.add(nameLabel);
 
         // ✏️ Name input field
         nameField = new JTextField();
-        nameField.setBounds(180, 160, 240, 35);
+        nameField.setBounds(180, 140, 240, 35);
         nameField.setFont(new Font("SansSerif", Font.PLAIN, 16));
         panel.add(nameField);
+
+        // 🌐 IP label
+        JLabel ipLabel = new JLabel("Server IP:");
+        ipLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
+        ipLabel.setForeground(Color.DARK_GRAY);
+        ipLabel.setBounds(240, 190, 200, 30);
+        panel.add(ipLabel);
+
+        // 🌐 IP input field
+        ipField = new JTextField("127.0.0.1"); // Varsayılan localhost
+        ipField.setBounds(180, 220, 240, 35);
+        ipField.setFont(new Font("SansSerif", Font.PLAIN, 16));
+        panel.add(ipField);
 
         // ▶️ Start button
         JButton startBtn = new JButton("START");
         startBtn.setFont(new Font("Arial", Font.BOLD, 18));
-        startBtn.setBounds(215, 220, 170, 45);
+        startBtn.setBounds(215, 280, 170, 45);
         startBtn.setBackground(new Color(255, 183, 77));
         startBtn.setForeground(Color.BLACK);
         startBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         startBtn.addActionListener(e -> {
             String name = nameField.getText().trim();
-            if (!name.isEmpty()) {
+            String ip = ipField.getText().trim();
+            if (!name.isEmpty() && !ip.isEmpty()) {
                 dispose();
-                new GUIClient(name);
+                new GUIClient(name, ip); // IP ile client başlatılıyor
             } else {
-                JOptionPane.showMessageDialog(this, "Please enter your name!");
+                JOptionPane.showMessageDialog(this, "Please enter your name and server IP!");
             }
         });
         panel.add(startBtn);
@@ -138,7 +153,7 @@ public class LoginScreen extends JFrame {
             ex.printStackTrace();
         }
 
-// 🪜 Ladder image (upper right corner - larger and shifted left)
+        // 🪜 Ladder image (upper right corner - larger and shifted left)
         try {
             String ladderPath = "C:/Users/alpce/OneDrive/Masaüstü/ladders.png";
             File ladderFile = new File(ladderPath);

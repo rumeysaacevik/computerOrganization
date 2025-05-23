@@ -9,6 +9,7 @@ import java.awt.*;
 import java.io.*;
 import java.net.Socket;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -21,72 +22,110 @@ import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
  */
 public class GUIClient extends JFrame {
 
+    // Alanlar
     private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
-    private JTextArea txtArea;
-    private JButton btnRoll;
-    private JButton btnSurrender;
-    private JPanel boardPanel;
+
+    private JTextArea logArea;   // Oyun eventleri/logları
+    private JTextArea chatArea;  // Sadece chat
+    private JButton btnRoll, btnSurrender, btnRestart;
+    private BoardPanel boardPanel;
     private String myId = "";
     private boolean myTurn = false;
     private String playerName;
-    private Map<String, Integer> positions = new HashMap<>();
-    private JLabel[] cells = new JLabel[100];
-    private final ImageIcon iconB;
-    private final ImageIcon iconR;
+    private LinkedHashMap<String, Integer> positions = new LinkedHashMap<>();
+    private final ImageIcon iconB, iconR;
+    private Image ladderImg, snakeImg;
+    private String activePlayerId = null;
+     private String serverIp;
 
+    // Merdivenler ve yılanlar
     private final Map<Integer, Integer> ladders = Map.of(
-            3, 22,
-            8, 30,
-            28, 84,
-            58, 77,
-            75, 86
+            3, 22, 8, 30, 28, 84, 58, 77, 75, 86
     );
-
     private final Map<Integer, Integer> snakes = Map.of(
-            97, 78,
-            89, 67,
-            62, 19,
-            36, 6,
-            25, 5
+            97, 78, 89, 67, 62, 19, 36, 6, 25, 5
     );
 
-    private JButton btnRestart;
-
-    public GUIClient(String name) {
+    public GUIClient(String name, String serverIp) {
         this.playerName = name;
+         this.serverIp = serverIp;
 
         setTitle("Snakes and Ladders - Client");
-        setSize(800, 720);
+        setSize(950, 750);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
         iconB = new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/playerB.png");
         iconR = new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/playerR.png");
-
-        boardPanel = new JPanel(new GridLayout(10, 10));
-        for (int i = 99; i >= 0; i--) {
-            JLabel cell = new JLabel(String.valueOf(i + 1), SwingConstants.CENTER);
-            cell.setBorder(BorderFactory.createLineBorder(Color.GRAY));
-            cell.setOpaque(true);
-            cell.setBackground(new Color(255, 230, 200));
-            cells[i] = cell;
-            boardPanel.add(cell);
+        try {
+            ladderImg = new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/ladder.png").getImage();
+            snakeImg = new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/snake_transparent.png").getImage();
+        } catch (Exception e) {
+            ladderImg = null;
+            snakeImg = null;
         }
+
+        boardPanel = new BoardPanel(ladders, snakes, positions, iconB, iconR, ladderImg, snakeImg);
         add(boardPanel, BorderLayout.CENTER);
 
-        txtArea = new JTextArea(5, 20);
-        txtArea.setEditable(false);
-        JScrollPane scrollPane = new JScrollPane(txtArea);
-        add(scrollPane, BorderLayout.EAST);
+        // ==== SAĞ PANEL: Chat + Log ====
+        JPanel rightPanel = new JPanel(new BorderLayout(5, 5));
 
+        // 1. Hazır mesajlar
+        String[] presetMsgs = {"İyi oyunlar!", "Bol şans!", "Seri lütfen!", "Güzel hamle!", "Teşekkürler!", "Üzgünüm 😅"};
+        JPanel presetPanel = new JPanel(new GridLayout(2, 3, 3, 3));
+        for (String msg : presetMsgs) {
+            JButton btn = new JButton(msg);
+            btn.setFont(new Font("SansSerif", Font.PLAIN, 12));
+            btn.addActionListener(e -> sendChat(msg));
+            presetPanel.add(btn);
+        }
+        rightPanel.add(presetPanel, BorderLayout.NORTH);
+
+        // 2. Chat Area (Sadece chat mesajları)
+        chatArea = new JTextArea(7, 25);
+        chatArea.setEditable(false);
+        chatArea.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        JScrollPane chatScroll = new JScrollPane(chatArea);
+        chatScroll.setBorder(BorderFactory.createTitledBorder("Mesajlar"));
+        rightPanel.add(chatScroll, BorderLayout.CENTER);
+
+        // 3. Chat Input
+        JPanel chatInputPanel = new JPanel(new BorderLayout(3, 0));
+        JTextField chatField = new JTextField();
+        chatField.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        JButton sendBtn = new JButton("Gönder");
+        sendBtn.addActionListener(e -> {
+            String msg = chatField.getText().trim();
+            if (!msg.isEmpty()) {
+                sendChat(msg);
+                chatField.setText("");
+            }
+        });
+        chatInputPanel.add(chatField, BorderLayout.CENTER);
+        chatInputPanel.add(sendBtn, BorderLayout.EAST);
+        rightPanel.add(chatInputPanel, BorderLayout.SOUTH);
+
+        // 4. Log Alanı (Oyun olayları/log)
+        logArea = new JTextArea(11, 25);
+        logArea.setEditable(false);
+        logArea.setFont(new Font("Consolas", Font.PLAIN, 13));
+        JScrollPane logScroll = new JScrollPane(logArea);
+        logScroll.setBorder(BorderFactory.createTitledBorder("Oyun"));
+
+        // SAĞ PANEL BİLEŞİK
+        JPanel eastWrap = new JPanel(new BorderLayout(5, 5));
+        eastWrap.add(rightPanel, BorderLayout.NORTH);
+        eastWrap.add(logScroll, BorderLayout.CENTER);
+
+        add(eastWrap, BorderLayout.EAST);
+
+        // ==== ALT PANEL ====
         JPanel southPanel = new JPanel();
 
-        ImageIcon originalIcon = new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/dice.png");
-        Image scaledImage = originalIcon.getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH);
-        ImageIcon diceIcon = new ImageIcon(scaledImage);
-
+        ImageIcon diceIcon = new ImageIcon(new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/dice.png").getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH));
         btnRoll = new JButton(diceIcon);
         btnRoll.setEnabled(false);
         btnRoll.setContentAreaFilled(false);
@@ -101,9 +140,8 @@ public class GUIClient extends JFrame {
         });
         southPanel.add(btnRoll);
 
-        ImageIcon restartIcon = new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/restart.png");
-        Image restartImg = restartIcon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH);
-        btnRestart = new JButton(new ImageIcon(restartImg));
+        ImageIcon restartIcon = new ImageIcon(new ImageIcon("C:/Users/alpce/OneDrive/Masaüstü/restart.png").getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH));
+        btnRestart = new JButton(restartIcon);
         btnRestart.setEnabled(false);
         btnRestart.setToolTipText("Yeni Oyuna Başla");
         btnRestart.setContentAreaFilled(false);
@@ -113,7 +151,7 @@ public class GUIClient extends JFrame {
         btnRestart.addActionListener(e -> {
             out.println("RESTART");
             btnRestart.setEnabled(false);
-            txtArea.append("Yeni oyun isteği gönderildi.\n");
+            logArea.append("Yeni oyun isteği gönderildi.\n");
         });
         southPanel.add(btnRestart);
 
@@ -129,7 +167,7 @@ public class GUIClient extends JFrame {
             out.println("SURRENDER");
             btnSurrender.setEnabled(false);
             btnRoll.setEnabled(false);
-            txtArea.append("Oyundan pes ettiniz.\n");
+            logArea.append("Oyundan pes ettiniz.\n");
         });
         southPanel.add(btnSurrender);
 
@@ -148,18 +186,15 @@ public class GUIClient extends JFrame {
             clip.start();
         } catch (Exception e) {
             System.err.println("Zar sesi çalınamadı!");
-            e.printStackTrace();
         }
     }
 
-    private void connectToServer() {
+   private void connectToServer() {
         try {
-            socket = new Socket("localhost", 5000);
+            socket = new Socket(serverIp, 5000); // ← Burada artık dinamik IP!
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
-
             out.println("NAME:" + playerName);
-
             new Thread(() -> {
                 String line;
                 try {
@@ -167,82 +202,90 @@ public class GUIClient extends JFrame {
                         processMessage(line);
                     }
                 } catch (IOException e) {
-                    txtArea.append("Bağlantı koptu...\n");
+                    logArea.append("Bağlantı koptu...\n");
                 }
             }).start();
-
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, "Sunucuya bağlanılamadı.");
         }
     }
 
-    // Sınıfın başına şunu ekle:
-    private String lastMessage = "";
-    private String lastSurrenderedMsg = "";
-
     private void processMessage(String msg) {
         SwingUtilities.invokeLater(() -> {
             if (msg.startsWith("WELCOME:")) {
                 myId = msg.substring(8).trim();
-                txtArea.setText("ID: " + myId + "\n");
-                lastMessage = "";
-
+                logArea.setText("ID: " + myId + "\n");
             } else if (msg.startsWith("MATCHED:")) {
-                txtArea.append("✅ " + msg.substring(8).trim() + "\n");
-                lastMessage = "";
+                logArea.append("✅ " + msg.substring(8).trim() + "\n");
                 btnSurrender.setEnabled(true);
-
             } else if (msg.startsWith("TURN:")) {
-                String activeId = msg.substring(5);
+                String activeId = msg.substring(5).trim();
                 myTurn = activeId.equals(myId);
-
+                this.activePlayerId = activeId;
+                boardPanel.setActivePlayer(activeId);
                 btnRoll.setEnabled(myTurn);
                 btnSurrender.setEnabled(true);
-
                 if (myTurn) {
-                    txtArea.append("\n🎯 Sıra sende! Zar atma zamanı! 🎲\n");
+                    logArea.append("\n🎯 Sıra sende! Zar atma zamanı! 🎲\n");
                 } else {
-                    txtArea.append("🟢 Sıra: " + activeId + "\n");
+                    logArea.append("🟢 Sıra: " + activeId + "\n");
                 }
-                lastMessage = "";
-
+            } else if (msg.startsWith("CHAT:")) {
+                String chatMsg = msg.substring(5);
+                chatArea.append(chatMsg + "\n");
+                chatArea.setCaretPosition(chatArea.getDocument().getLength());
             } else if (msg.startsWith("MOVE:")) {
                 String[] parts = msg.split(":");
                 if (parts.length == 4) {
                     String player = parts[1];
                     int roll = Integer.parseInt(parts[2]);
                     int pos = Integer.parseInt(parts[3]);
-
-                    positions.put(player, pos);
+                    if (!positions.containsKey(player)) {
+                        positions.put(player, pos);
+                    } else {
+                        positions.replace(player, pos);
+                    }
                     updateBoard();
-
-                    txtArea.append(player + " zar attı: " + roll + ", Yeni konum: " + pos + "\n");
-                    lastMessage = "";
+                    logArea.append(player + " zar attı: " + roll + ", Yeni konum: " + pos + "\n");
                 }
-
             } else if (msg.startsWith("WINNER:")) {
                 String winner = msg.substring(7).trim();
-                txtArea.append("🏆 Kazanan: " + winner + "\n");
-
+                logArea.append("🏆 Kazanan: " + winner + "\n");
                 btnRoll.setEnabled(false);
                 btnSurrender.setEnabled(false);
                 btnRestart.setEnabled(true);
-
                 if (winner.equals(myId)) {
-                    // Sadece kazanan için kutlama ekranı
+                    // --- Modern Kazanan Popup ---
                     JPanel panel = new JPanel();
-                    panel.setBackground(new Color(255, 245, 220));
-                    panel.setLayout(new BorderLayout());
+                    panel.setBackground(new Color(255, 247, 230));
+                    panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+                    panel.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(new Color(240, 180, 70), 4, true),
+                            BorderFactory.createEmptyBorder(16, 32, 16, 32)
+                    ));
 
-                    JLabel fireworks = new JLabel("🎆🎉🎇", SwingConstants.CENTER);
-                    fireworks.setFont(new Font("Serif", Font.PLAIN, 50));
+                    JLabel fireworks = new JLabel("🎆  🎉  🥳  🎊  🎇", SwingConstants.CENTER);
+                    fireworks.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 46));
+                    fireworks.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-                    JLabel congrats = new JLabel("Tebrikler " + winner + "!", SwingConstants.CENTER);
-                    congrats.setFont(new Font("SansSerif", Font.BOLD, 24));
-                    congrats.setForeground(new Color(50, 50, 50));
+                    JLabel congrats = new JLabel("<html><div style='text-align:center;'>"
+                            + "<span style='font-size:28pt; font-weight:bold; color:#ca8000;'>Tebrikler<br>"
+                            + winner + "!</span></div></html>", SwingConstants.CENTER);
+                    congrats.setFont(new Font("Segoe UI", Font.BOLD, 26));
+                    congrats.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-                    panel.add(fireworks, BorderLayout.NORTH);
-                    panel.add(congrats, BorderLayout.CENTER);
+                    JLabel sub = new JLabel("Oyunu kazandın! 🎲", SwingConstants.CENTER);
+                    sub.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+                    sub.setForeground(new Color(120, 120, 120));
+                    sub.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+                    panel.add(Box.createVerticalStrut(8));
+                    panel.add(fireworks);
+                    panel.add(Box.createVerticalStrut(12));
+                    panel.add(congrats);
+                    panel.add(Box.createVerticalStrut(12));
+                    panel.add(sub);
+                    panel.add(Box.createVerticalStrut(8));
 
                     JOptionPane.showMessageDialog(
                             this,
@@ -251,98 +294,199 @@ public class GUIClient extends JFrame {
                             JOptionPane.PLAIN_MESSAGE
                     );
                 }
-                lastMessage = "";
-
             } else if (msg.startsWith("SURRENDERED:")) {
-                // Çiftli mesajı temizle!
                 String surrenderedMsg = msg.substring(12).trim();
-                // Sunucu bazen iki kere yollayabiliyor; buradan yakalayıp filtrele
-                surrenderedMsg = surrenderedMsg.replaceAll("(oyundan pes ettiniz\\.)+", "oyundan pes ettiniz.");
-                surrenderedMsg = surrenderedMsg.replaceAll("(oyundan pes etti\\.)+", "oyundan pes etti.");
-                String display = "⚠️ " + surrenderedMsg + "\n";
-
-                // Son yazılan SURRENDERED mesajı ile aynıysa tekrar yazma!
-                if (!display.equals(lastSurrenderedMsg)) {
-                    txtArea.append(display);
-                    lastSurrenderedMsg = display;
-                }
+                logArea.append("⚠️ " + surrenderedMsg + "\n");
                 btnRoll.setEnabled(false);
                 btnSurrender.setEnabled(false);
                 btnRestart.setEnabled(true);
-
             } else if (msg.startsWith("RESTART_REQUEST_FROM:")) {
                 String fromPlayer = msg.substring("RESTART_REQUEST_FROM:".length()).trim();
                 int response = JOptionPane.showConfirmDialog(
-                        this,
-                        fromPlayer + " yeni bir oyun başlatmak istiyor. Kabul ediyor musunuz?",
-                        "Yeni Oyun Daveti",
-                        JOptionPane.YES_NO_OPTION
-                );
-                if (response == JOptionPane.YES_OPTION) {
-                    out.println("RESTART_RESPONSE:true");
-                } else {
-                    out.println("RESTART_RESPONSE:false");
-                }
-                lastMessage = "";
-
+                        this, fromPlayer + " yeni bir oyun başlatmak istiyor. Kabul ediyor musunuz?",
+                        "Yeni Oyun Daveti", JOptionPane.YES_NO_OPTION);
+                out.println("RESTART_RESPONSE:" + (response == JOptionPane.YES_OPTION ? "true" : "false"));
             } else if (msg.startsWith("RESTART_CONFIRMED")) {
-                txtArea.append("✅ Her iki oyuncu kabul etti. Yeni oyun başlıyor!\n");
-                lastMessage = "";
-
+                logArea.append("✅ Her iki oyuncu kabul etti. Yeni oyun başlıyor!\n");
             } else if (msg.startsWith("RESTART_DENIED")) {
-                txtArea.append("❌ Rakip yeni oyunu kabul etmedi.\n");
+                logArea.append("❌ Rakip yeni oyunu kabul etmedi.\n");
                 btnRestart.setEnabled(true);
-                lastMessage = "";
-
             } else if (msg.startsWith("NEW_GAME:")) {
-                txtArea.append("🎲 Yeni oyun başlatıldı!\n");
+                logArea.append("🎲 Yeni oyun başlatıldı!\n");
                 positions.clear();
                 updateBoard();
                 btnRestart.setEnabled(false);
                 btnRoll.setEnabled(false);
                 btnSurrender.setEnabled(true);
-                lastMessage = "";
-
             } else if (msg.equals("EXIT")) {
                 this.dispose();
                 new LoginScreen();
-
-            } else {
-                // Tekrarlı mesajı bir daha yazma
-                String toPrint = msg + "\n";
-                if (!lastMessage.equals(toPrint)) {
-                    txtArea.append(toPrint);
-                    lastMessage = toPrint;
-                }
             }
         });
     }
 
     private void updateBoard() {
-        for (int i = 0; i < 100; i++) {
-            cells[i].setText(String.valueOf(i + 1));
-            cells[i].setBackground(new Color(255, 230, 200));
-            cells[i].setIcon(null);
-
-            if (ladders.containsKey(i + 1)) {
-                cells[i].setBackground(Color.GREEN);
-            } else if (snakes.containsKey(i + 1)) {
-                cells[i].setBackground(Color.RED);
-            }
-        }
-
-        int count = 0;
-        for (Map.Entry<String, Integer> entry : positions.entrySet()) {
-            int index = entry.getValue() - 1;
-            if (index >= 0 && index < 100) {
-                ImageIcon icon = (count == 0) ? iconB : iconR;
-                cells[index].setIcon(icon);
-                count++;
-            }
-        }
+        boardPanel.repaint();
     }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(LoginScreen::new);
+    }
+
+    // ---- BoardPanel ----
+    class BoardPanel extends JPanel {
+
+        private final int rows = 10, cols = 10;
+        private final Map<Integer, Integer> ladders, snakes;
+        private final LinkedHashMap<String, Integer> playerPositions;
+        private final ImageIcon iconB, iconR;
+        private final Image ladderImg, snakeImg;
+        private String activePlayer = null;
+
+        public BoardPanel(Map<Integer, Integer> ladders, Map<Integer, Integer> snakes,
+                LinkedHashMap<String, Integer> playerPositions, ImageIcon iconB, ImageIcon iconR,
+                Image ladderImg, Image snakeImg) {
+            this.ladders = ladders;
+            this.snakes = snakes;
+            this.playerPositions = playerPositions;
+            this.iconB = iconB;
+            this.iconR = iconR;
+            this.ladderImg = ladderImg;
+            this.snakeImg = snakeImg;
+            setPreferredSize(new Dimension(800, 650));
+        }
+
+        public void setActivePlayer(String playerId) {
+            this.activePlayer = playerId;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            int panelW = getWidth(), panelH = getHeight();
+            int cellW = (panelW - 40) / cols, cellH = (panelH - 60) / rows;
+            int cellSize = Math.min(cellW, cellH);
+            drawPlayerNamesBar(g, panelW, cellSize);
+
+            for (int i = 0; i < 100; i++) {
+                int[] xy = getCellXY(i + 1, cellSize, panelW, panelH);
+                g.setColor(new Color(255, 230, 200));
+                g.fillRect(xy[0], xy[1], cellSize, cellSize);
+                g.setColor(Color.GRAY);
+                g.drawRect(xy[0], xy[1], cellSize, cellSize);
+                g.setColor(Color.BLACK);
+                g.setFont(new Font("SansSerif", Font.PLAIN, 12));
+                g.drawString(String.valueOf(i + 1), xy[0] + 5, xy[1] + 15);
+            }
+            Graphics2D g2 = (Graphics2D) g;
+            if (ladderImg != null) {
+                for (var entry : ladders.entrySet()) {
+                    int[] start = getCellCenter(entry.getKey(), cellSize, panelW, panelH);
+                    int[] end = getCellCenter(entry.getValue(), cellSize, panelW, panelH);
+                    drawImageBetween(g2, ladderImg, start[0], start[1], end[0], end[1], cellSize);
+                }
+            }
+            if (snakeImg != null) {
+                for (var entry : snakes.entrySet()) {
+                    int[] start = getCellCenter(entry.getKey(), cellSize, panelW, panelH);
+                    int[] end = getCellCenter(entry.getValue(), cellSize, panelW, panelH);
+                    drawImageBetween(g2, snakeImg, start[0], start[1], end[0], end[1], cellSize);
+                }
+            }
+            int idx = 0;
+            for (var entry : playerPositions.entrySet()) {
+                int[] center = getCellCenter(entry.getValue(), cellSize, panelW, panelH);
+                ImageIcon icon = idx == 0 ? iconB : iconR;
+                if (icon != null) {
+                    g.drawImage(icon.getImage(), center[0] - cellSize / 4, center[1] - cellSize / 4, cellSize / 2, cellSize / 2, null);
+                } else {
+                    g.setColor(idx == 0 ? Color.BLUE : Color.RED);
+                    g.fillOval(center[0] - cellSize / 4, center[1] - cellSize / 4, cellSize / 2, cellSize / 2);
+                }
+                idx++;
+            }
+        }
+
+        private void drawPlayerNamesBar(Graphics g, int panelW, int cellSize) {
+            int barH = cellSize / 2 + 10, y = 5, x = (panelW - cellSize * cols) / 2;
+            String[] names = playerPositions.keySet().toArray(new String[0]);
+            if (names.length == 0) {
+                return;
+            }
+            int w = (cellSize * cols) / 2;
+
+            // 1. Oyuncu
+            String name1 = names[0];
+            boolean turn1 = name1.equals(activePlayer);
+            if (turn1) {
+                g.setColor(new Color(255, 255, 170));
+                g.fillRoundRect(x - 4, y - 4, w + 8, barH + 8, 22, 22);
+                g.setColor(new Color(255, 50, 50));
+                g.drawRoundRect(x - 4, y - 4, w + 8, barH + 8, 22, 22);
+            }
+            g.setColor(new Color(255, 180, 180));
+            g.fillRoundRect(x, y, w, barH, 16, 16);
+            g.setColor(Color.RED);
+            g.drawRoundRect(x, y, w, barH, 16, 16);
+            g.setColor(turn1 ? Color.RED.darker() : Color.DARK_GRAY);
+            g.setFont(new Font("SansSerif", turn1 ? Font.BOLD : Font.PLAIN, cellSize / 3));
+            drawCenteredString(g, "🔴 " + name1, x, y, w, barH);
+
+            // 2. Oyuncu
+            if (names.length > 1) {
+                String name2 = names[1];
+                boolean turn2 = name2.equals(activePlayer);
+                if (turn2) {
+                    g.setColor(new Color(210, 250, 210));
+                    g.fillRoundRect(x + w - 4, y - 4, w + 8, barH + 8, 22, 22);
+                    g.setColor(new Color(0, 120, 255));
+                    g.drawRoundRect(x + w - 4, y - 4, w + 8, barH + 8, 22, 22);
+                }
+                g.setColor(new Color(180, 200, 255));
+                g.fillRoundRect(x + w, y, w, barH, 16, 16);
+                g.setColor(Color.BLUE);
+                g.drawRoundRect(x + w, y, w, barH, 16, 16);
+
+                g.setColor(turn2 ? Color.BLUE.darker() : Color.DARK_GRAY);
+                g.setFont(new Font("SansSerif", turn2 ? Font.BOLD : Font.PLAIN, cellSize / 3));
+                drawCenteredString(g, "🔵 " + name2, x + w, y, w, barH);
+            }
+        }
+
+        private void drawCenteredString(Graphics g, String text, int x, int y, int w, int h) {
+            FontMetrics metrics = g.getFontMetrics(g.getFont());
+            int tx = x + (w - metrics.stringWidth(text)) / 2;
+            int ty = y + ((h - metrics.getHeight()) / 2) + metrics.getAscent();
+            g.drawString(text, tx, ty);
+        }
+
+        private int[] getCellXY(int pos, int cellSize, int panelW, int panelH) {
+            int row = 9 - (pos - 1) / 10;
+            int col = (row % 2 == 0) ? (pos - 1) % 10 : 9 - (pos - 1) % 10;
+            int startX = (panelW - cellSize * cols) / 2;
+            int startY = 40 + (panelH - cellSize * rows - 40) / 2;
+            return new int[]{startX + col * cellSize, startY + row * cellSize};
+        }
+
+        private int[] getCellCenter(int pos, int cellSize, int panelW, int panelH) {
+            int[] xy = getCellXY(pos, cellSize, panelW, panelH);
+            return new int[]{xy[0] + cellSize / 2, xy[1] + cellSize / 2};
+        }
+
+        private void drawImageBetween(Graphics2D g2, Image img, int x1, int y1, int x2, int y2, int cellSize) {
+            double dx = x2 - x1, dy = y2 - y1, distance = Math.hypot(dx, dy);
+            double angle = Math.atan2(dy, dx);
+            int imgW = (int) (cellSize * 0.7), imgH = (int) distance;
+            g2 = (Graphics2D) g2.create();
+            g2.translate(x1, y1);
+            g2.rotate(angle - Math.PI / 2);
+            g2.drawImage(img, -imgW / 2, 0, imgW, imgH, null);
+            g2.dispose();
+        }
+    }
+
+    private void sendChat(String message) {
+        out.println("CHAT:" + message);
     }
 }

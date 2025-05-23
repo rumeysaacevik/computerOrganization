@@ -12,12 +12,14 @@ import java.net.Socket;
  * @author Rümeysa
  */
 // --- SClient.java ---
+
+
 public class SClient extends Thread {
 
     Socket socket;
     Server server;
-    String clientId;   // Örneğin Player1, Player2 gibi
-    String playerName; // Gerçek kullanıcı adı, login ekranından gelir
+    String clientId;   // Player1, Player2 veya isim
+    String playerName;
     BufferedReader in;
     PrintWriter out;
 
@@ -25,7 +27,7 @@ public class SClient extends Thread {
         this.socket = socket;
         this.server = server;
         this.clientId = clientId;
-        this.playerName = clientId; // İlk başta clientId ile aynı
+        this.playerName = clientId;
         this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         this.out = new PrintWriter(socket.getOutputStream(), true);
     }
@@ -33,44 +35,45 @@ public class SClient extends Thread {
     public void send(String msg) {
         if (out != null) {
             out.println(msg);
-        } else {
-            System.err.println("Client output stream is null.");
         }
     }
 
-   @Override
-public void run() {
-    try {
-        String msg;
-        while ((msg = in.readLine()) != null) {
-            if (msg.startsWith("NAME:")) {
-                String oldId = this.clientId;
-                String newName = msg.substring(5).trim();
-                this.clientId = newName;
-                this.playerName = newName;
-                server.updateClientId(oldId, this.clientId);
-                send("WELCOME:" + this.clientId);
-                server.addClientToQueue(this);
-            } else if (msg.equals("ROLL")) {
-                server.processRoll(clientId);
-            } else if (msg.equals("RESTART")) {
-                server.processRestartRequest(clientId);
-            } else if (msg.startsWith("RESTART_RESPONSE:")) {
-                boolean accepted = msg.substring(17).equalsIgnoreCase("true");
-                server.processRestartResponse(clientId, accepted);
-            } else if (msg.equals("SURRENDER")) {
-                server.processSurrender(clientId);
-            }
-        }
-    } catch (IOException e) {
-        e.printStackTrace();
-    } finally {
+    @Override
+    public void run() {
         try {
-            socket.close(); // Bağlantıyı kapat
-        } catch (IOException ex) {
-            ex.printStackTrace();
+            String msg;
+            while ((msg = in.readLine()) != null) {
+                if (msg.startsWith("NAME:")) {
+                    String oldId = this.clientId;
+                    String newName = msg.substring(5).trim();
+                    this.clientId = newName;
+                    this.playerName = newName;
+                    server.updateClientId(oldId, this.clientId);
+                    send("WELCOME:" + this.clientId);
+                    server.addClientToQueue(this);
+                } else if (msg.equals("ROLL")) {
+                    server.processRoll(clientId);
+                } else if (msg.equals("RESTART")) {
+                    server.processRestartRequest(clientId);
+                } else if (msg.startsWith("RESTART_RESPONSE:")) {
+                    boolean accepted = msg.substring(17).equalsIgnoreCase("true");
+                    server.processRestartResponse(clientId, accepted);
+                } else if (msg.equals("SURRENDER")) {
+                    server.processSurrender(clientId);
+                } else if (msg.startsWith("CHAT:")) {
+                    String chatMsg = "[" + playerName + "]: " + msg.substring(5).trim();
+                    server.sendChatToRoom(this, chatMsg); // Odaya mesajı ilet
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                socket.close();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+            server.removeClient(this);
         }
-        server.removeClient(this); // Sunucudan bu istemciyi sil
     }
-}
 }
