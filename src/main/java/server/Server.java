@@ -14,13 +14,17 @@ import java.util.*;
  * @author Rümeysa
  */
 
+
+ //sunucusu sınıfı.
+ //bağlanan istemcileri ve aktif oyunları yönetir, eşleştirme ve oyun mantığını kontrol eder.
+ 
 public class Server {
 
     private ServerSocket serverSocket;
-    private final List<SClient> waitingQueue = new ArrayList<>();
-    private final List<GameRoom> activeGames = new ArrayList<>();
+    private final List<SClient> waitingQueue = new ArrayList<>();   // bekleyen oyuncular
+    private final List<GameRoom> activeGames = new ArrayList<>();   // aktif oyun odaları
 
-    // Sends chat messages to all players in the same room
+    //bir oyuncunun gönderdiği sohbet mesajını odaya iletir.
     public void sendChatToRoom(SClient sender, String chatMsg) {
         GameRoom room = findRoomOfClient(sender);
         if (room != null) {
@@ -32,7 +36,7 @@ public class Server {
         }
     }
 
-    // Finds which room the client belongs to
+    //bir oyuncunun hangi aktif oyun odasında olduğunu bulur.
     private GameRoom findRoomOfClient(SClient client) {
         for (GameRoom game : activeGames) {
             if (game.players.contains(client)) {
@@ -42,15 +46,18 @@ public class Server {
         return null;
     }
 
+    //sunucu başlatılırken ilgili port dinlemeye alınır
     public Server(int port) throws IOException {
         serverSocket = new ServerSocket(port);
     }
 
+    //Sunucu başlatıldığında, sürekli yeni istemci bağlantıları dinlenir
     public void start() {
         System.out.println("Server started.");
         new Thread(this::listenForClients).start();
     }
 
+    //yeni istemci bağlantılarını dinler ve kabul eder.
     private void listenForClients() {
         try {
             while (true) {
@@ -64,9 +71,11 @@ public class Server {
         }
     }
 
+    //oyuncuyu bekleme kuyruğuna ekler, 2 kişi olunca yeni oyun başlatır
     public synchronized void addClientToQueue(SClient client) {
         waitingQueue.add(client);
         if (waitingQueue.size() >= 2) {
+            // 2 kişi tamamlandı, oyun başlatılır
             List<SClient> playersForGame = new ArrayList<>(waitingQueue.subList(0, 2));
             waitingQueue.subList(0, 2).clear();
 
@@ -74,15 +83,17 @@ public class Server {
             activeGames.add(newGame);
             newGame.start();
         } else {
+            // Yeterli oyuncu yoksa bekletilir
             client.send("WAITING: Waiting for another player to join the game...");
         }
     }
 
+    //bir oyuncu sistemden ayrıldığında ilgili oyun ve kuyruktan silinir
     public synchronized void removeClient(SClient client) {
-        // Remove from waiting queue
+        // Bekleme kuyruğundan çıkar
         waitingQueue.remove(client);
 
-        // Remove from active games
+        // aktif oyunlardan çıkar ve odadaki diğer oyunculara bilgi verir
         GameRoom toRemove = null;
         for (GameRoom game : activeGames) {
             if (game.players.contains(client)) {
@@ -99,8 +110,9 @@ public class Server {
         System.out.println("✂️ " + client.clientId + " disconnected and removed from the system.");
     }
 
+    //oyuncunun ismi güncellendiğinde tüm listelerde id'yi değiştirir
     public synchronized void updateClientId(String oldId, String newId) {
-        // Update ID in waiting queue
+        // Bekleme kuyruğunda güncelle
         for (SClient client : waitingQueue) {
             if (client.clientId.equals(oldId)) {
                 client.clientId = newId;
@@ -108,7 +120,7 @@ public class Server {
                 return;
             }
         }
-        // Update ID in active games
+        // aktif oyunlarda güncelle
         for (GameRoom game : activeGames) {
             for (SClient player : game.players) {
                 if (player.clientId.equals(oldId)) {
@@ -120,6 +132,9 @@ public class Server {
         }
     }
 
+    // oyun sırasında gelen taleplerin oyun odasına iletilmesi burada gerçekleşir
+
+    // oyuncudan restart isteği gelince ilgili odadaki işlemi başlatır
     public synchronized void processRestartRequest(String clientId) {
         for (GameRoom game : activeGames) {
             for (SClient player : game.players) {
@@ -131,6 +146,7 @@ public class Server {
         }
     }
 
+    // oyuncunun restart teklifine verdiği cevabı ilgili odaya iletir
     public synchronized void processRestartResponse(String clientId, boolean accepted) {
         for (GameRoom game : activeGames) {
             for (SClient player : game.players) {
@@ -142,6 +158,7 @@ public class Server {
         }
     }
 
+    //odaya restart komutu gelirse oyunu başlatır
     public synchronized void processRestart(String clientId) {
         for (GameRoom game : activeGames) {
             for (SClient player : game.players) {
@@ -153,6 +170,7 @@ public class Server {
         }
     }
 
+    //zar atma isteği ilgili odadaki oyun mantığına yönlendirilir
     public synchronized void processRoll(String clientId) {
         for (GameRoom game : activeGames) {
             for (SClient player : game.players) {
@@ -164,6 +182,7 @@ public class Server {
         }
     }
 
+    // teslim olma isteği ilgili oyun odasına bildirilir
     public synchronized void processSurrender(String clientId) {
         for (GameRoom game : activeGames) {
             for (SClient player : game.players) {
@@ -175,17 +194,20 @@ public class Server {
         }
     }
 
-    // ---- Inner Class: GameRoom ----
+    // oyun odası: her 2 oyunculu oyun için ayrı GameRoom nesnesi 
     private class GameRoom {
 
-        List<SClient> players;
-        private String restartRequester = null;
-        private final Set<String> restartVotes = new HashSet<>();
+        List<SClient> players;           // odaya bağlı oyuncular
+        private String restartRequester = null;     // kim restart istedi?
+        private final Set<String> restartVotes = new HashSet<>(); // onaylayan oyuncular
 
-        Map<String, Integer> positions = new HashMap<>();
-        int currentPlayerIndex = 0;
-        Random random = new Random();
+        Map<String, Integer> positions = new HashMap<>();   // oyuncuların pozisyonu
+        int currentPlayerIndex = 0;         // sıradaki oyuncunun indexi
+        Random random = new Random();       // zar için random nesnesi
 
+        
+         //oda oluşturulurken 2 oyuncu ile başlar, herkes 1 konumunda olur
+         
         GameRoom(List<SClient> players) {
             this.players = players;
             for (SClient p : players) {
@@ -193,11 +215,13 @@ public class Server {
             }
         }
 
+        //oda başladığında oyunculara eşleşme bilgisi ve ilk sıra verilir
         void start() {
             broadcast("MATCHED: Match found!");
             sendTurnToCurrentPlayer();
         }
 
+        // oda yeniden başlatılır, konumlar sıfırlanır, sıra başa döner
         void restartGame() {
             for (SClient p : players) {
                 positions.put(p.clientId, 1);
@@ -207,14 +231,17 @@ public class Server {
             sendTurnToCurrentPlayer();
         }
 
+        //oyuncudan gelen restart isteği işleniyor ve tüm oyuncular onay verirse oyun başlıyor
         void handleRestartRequest(String fromId) {
             System.out.println("📨 [SERVER] Restart request received: " + fromId);
 
             if (restartRequester == null) {
+                // ilk restart isteği
                 restartRequester = fromId;
                 restartVotes.clear();
                 restartVotes.add(fromId);
 
+                // diğer oyuncuya teklif gönder
                 for (SClient p : players) {
                     if (!p.clientId.equals(fromId)) {
                         System.out.println("➡️ [SERVER] Sending RESTART_REQUEST_FROM to: " + p.clientId);
@@ -222,6 +249,7 @@ public class Server {
                     }
                 }
             } else if (!restartVotes.contains(fromId)) {
+                // ikinci oyuncu da isterse otomatik başlatılır
                 System.out.println("🔄 Both players requested restart, automatically accepted.");
                 restartVotes.add(fromId);
                 if (restartVotes.size() == players.size()) {
@@ -235,6 +263,7 @@ public class Server {
             }
         }
 
+        //oyuncunun restart teklifine cevabı işlenir. Kabul edilirse oyun başlar, red ise tüm oyunculara bildirilir ve oda kapatılır
         void handleRestartResponse(String fromId, boolean accepted) {
             if (!accepted) {
                 broadcast("RESTART_DENIED");
@@ -255,6 +284,7 @@ public class Server {
             }
         }
 
+        /** Bir oyuncu oyunu bırakırsa (surrender), diğer oyuncuya otomatik galibiyet verilir. */
         void handleSurrender(String surrenderingClientId) {
             for (SClient player : players) {
                 if (player.clientId.equals(surrenderingClientId)) {
@@ -266,40 +296,46 @@ public class Server {
             }
         }
 
+        //tüm oyunculara mesaj göndermek için kullanılır
         void broadcast(String msg) {
             for (SClient player : players) {
                 player.send(msg);
             }
         }
 
+        // Sıra kimdeyse ona bildirim gönderir
         void sendTurnToCurrentPlayer() {
             SClient current = players.get(currentPlayerIndex);
             broadcast("TURN:" + current.clientId);
         }
 
+        // oyuncu zar atarsa işlemleri yapar ve sonucu gönderir
         void processRoll(String clientId) {
             if (!clientId.equals(players.get(currentPlayerIndex).clientId)) {
+                // sıra bu oyuncuda değilse işlem yapılmaz
                 return;
             }
 
-            int roll = random.nextInt(6) + 1;
+            int roll = random.nextInt(6) + 1;          // 1-6 arası zar
             int oldPos = positions.getOrDefault(clientId, 1);
-            int newPos = Math.min(100, oldPos + roll);
+            int newPos = Math.min(100, oldPos + roll); // 100'ü aşamaz
 
-            newPos = applySnakesAndLadders(newPos);
+            newPos = applySnakesAndLadders(newPos);    // yılan veya merdiven kontrolü
 
             positions.put(clientId, newPos);
             broadcast("MOVE:" + clientId + ":" + roll + ":" + newPos);
 
             if (newPos == 100) {
-                broadcast("WINNER:" + clientId);
+                broadcast("WINNER:" + clientId);        // kazanan bildir
                 return;
             }
 
+            // sıradaki oyuncuya geç
             currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
             sendTurnToCurrentPlayer();
         }
 
+        //Yılan/merdiven var mı kontrolü ve yeni konumun belirlenmesi için
         int applySnakesAndLadders(int pos) {
             Map<Integer, Integer> map = Map.of(
                     3, 22,

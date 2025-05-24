@@ -15,20 +15,25 @@ import java.util.Scanner;
  *
  * @author Rümeysa
  */
+ // bağlantı için test classı
+ 
+ 
 public class TestClient3 {
-     public static void main(String[] args) {
+    public static void main(String[] args) {
         try {
-            Socket socket = new Socket("localhost", 5000);
+            // sunucuya bağlantı kurulur (localhost, port 5000)
+            Socket socket = new Socket("13.60.21.226", 5000);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
 
             Scanner scanner = new Scanner(System.in);
 
-            // Arka planda sunucudan gelen mesajları dinle
+            // sunucudan gelen mesajları sürekli dinleyen ayrı bir thread başlatılır
             new Thread(() -> {
                 String serverMsg;
                 try {
                     while ((serverMsg = in.readLine()) != null) {
+                        // gelen mesajı konsola yazdırıyor
                         System.out.println("Server: " + serverMsg);
                     }
                 } catch (IOException e) {
@@ -36,15 +41,19 @@ public class TestClient3 {
                 }
             }).start();
 
-            // Kullanıcıdan komut al
+            // kullanıcıdan komut alır ve sunucuya iletir
             while (true) {
                 String input = scanner.nextLine();
+                // kullanıcı "ROLL" yazarsa sunucuya ROLL komutu gönderilir
                 if (input.equalsIgnoreCase("ROLL")) {
                     out.println("ROLL");
-                } else if (input.equalsIgnoreCase("exit")) {
+                }
+                // kullanıcı "exit" yazarsa bağlantı kapanır ve programdan çıkılır
+                else if (input.equalsIgnoreCase("exit")) {
                     socket.close();
                     break;
                 }
+                // buraya istersek baska komutları da ekleyebiliriz 
             }
 
         } catch (IOException e) {

@@ -10,13 +10,16 @@ import java.io.IOException;
  *
  * @author Rümeysa
  */
+
+//programın giriş noktasıdır sunucuyu başlatır
 public class ServerMain {
 
     public static void main(String[] args) {
         try {
-            Server server = new Server(5000);  // Port 5000
-            server.start(); // dinlemeye basla
+            Server server = new Server(5000);  // Port 5000 üzerinden Server nesnesi oluşturulur
+            server.start(); // sunucu dinlemeye başlar (istemci bağlantısı bekler)
         } catch (IOException e) {
+            //sunucu başlatılırken hata oluşursa ekrana yazdırılır
             e.printStackTrace();
         }
     }

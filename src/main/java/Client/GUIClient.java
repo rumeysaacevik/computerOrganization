@@ -22,10 +22,10 @@ import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
  */
 
 
-/**
- * Ana client (istemci) GUI sınıfı. Kullanıcı arayüzü ve sunucu ile bağlantıyı yönetir.
- * Oyuncunun oyunu oynayabildiği, mesajlaşabildiği ve sunucudan gelen verilerin işlendiği yerdir.
- */
+
+ //client GUI sınıfı. kullanıcı arayüzü ve sunucu ile bağlantıyı yönetir.
+ // oyuncunun oyunu oynayabildiği, mesajlaşabildiği ve sunucudan gelen verilerin işlendiği class
+ 
 public class GUIClient extends JFrame {
 
     // sunucu baglantısı icin
@@ -164,7 +164,7 @@ public class GUIClient extends JFrame {
         southPanel.add(btnRestart);
 
         // surrender butonu
-        ImageIcon flagIcon = new ImageIcon(getClass().getResource("/pieces/flag.png"));
+        ImageIcon flagIcon = new ImageIcon(getClass().getResource("/pieces/flag (1).png"));
         btnSurrender = new JButton(flagIcon);
         btnSurrender.setToolTipText("Surrender");
         btnSurrender.setEnabled(false);
@@ -286,9 +286,8 @@ public class GUIClient extends JFrame {
                 btnRoll.setEnabled(false);
                 btnSurrender.setEnabled(false);
                 btnRestart.setEnabled(true);
-                // Kazanan oyuncu ise kutlama mesajı göster
                 if (winner.equals(myId)) {
-                    // Kazanan kutlama pop-up'ı
+                    // kazanan kutlama
                     JPanel panel = new JPanel();
                     panel.setBackground(new Color(255, 247, 230));
                     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -328,7 +327,7 @@ public class GUIClient extends JFrame {
                     );
                 }
             }
-            // Teslim olunduğunda çalışır
+            // teslim olunduğunda çalışır
             else if (msg.startsWith("SURRENDERED:")) {
                 String surrenderedMsg = msg.substring(12).trim();
                 logArea.append("⚠️ " + surrenderedMsg + "\n");
@@ -336,7 +335,7 @@ public class GUIClient extends JFrame {
                 btnSurrender.setEnabled(false);
                 btnRestart.setEnabled(true);
             }
-            // Yeni oyun isteği geldiğinde (onaylama kutusu)
+            // yeni oyun isteği geldiğinde onaylama kutusu
             else if (msg.startsWith("RESTART_REQUEST_FROM:")) {
                 String fromPlayer = msg.substring("RESTART_REQUEST_FROM:".length()).trim();
                 int response = JOptionPane.showConfirmDialog(
@@ -344,16 +343,16 @@ public class GUIClient extends JFrame {
                         "New Game Invitation", JOptionPane.YES_NO_OPTION);
                 out.println("RESTART_RESPONSE:" + (response == JOptionPane.YES_OPTION ? "true" : "false"));
             }
-            // İki oyuncu da kabul ettiğinde yeni oyun başlar
+            // iki oyuncu da kabul ettiğinde yeni oyun başlar
             else if (msg.startsWith("RESTART_CONFIRMED")) {
                 logArea.append("✅ Both players accepted. New game is starting!\n");
             }
-            // Yeni oyun isteği reddedildi
+            // yeni oyun isteği reddedildi
             else if (msg.startsWith("RESTART_DENIED")) {
                 logArea.append("❌ Opponent did not accept the new game.\n");
                 btnRestart.setEnabled(true);
             }
-            // Yeni oyun başladığında
+            // yeni oyun başladığında
             else if (msg.startsWith("NEW_GAME:")) {
                 logArea.append("🎲 New game started!\n");
                 positions.clear();
@@ -362,7 +361,7 @@ public class GUIClient extends JFrame {
                 btnRoll.setEnabled(false);
                 btnSurrender.setEnabled(true);
             }
-            // Oyun kapatılırsa giriş ekranına döner
+            // oyun kapatılırsa giriş ekranına döner
             else if (msg.equals("EXIT")) {
                 this.dispose();
                 new LoginScreen();
@@ -370,23 +369,21 @@ public class GUIClient extends JFrame {
         });
     }
 
-    /**
-     * Oyun tahtasının güncellenmesi için repaint yapılır.
-     */
+    
+     //oyun tahtasının güncellenmesi için 
+     
     private void updateBoard() {
         boardPanel.repaint();
     }
 
-    /**
-     * Programın ana metodu. Giriş ekranı açılır.
-     */
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(LoginScreen::new);
     }
 
-    /**
-     * Oyun tahtasının görselliği ve oyuncu taşlarının çizimini yapan iç panel sınıfı.
-     */
+    
+     // oyun tahtasının görselliği ve oyuncu taşlarının çizimini yapan iç sınıf
+     
     class BoardPanel extends JPanel {
 
         private final int rows = 10, cols = 10;
@@ -396,7 +393,7 @@ public class GUIClient extends JFrame {
         private final Image ladderImg, snakeImg;
         private String activePlayer = null;
 
-        // Tahta panelinin constructor'ı
+        // tahta panelinin constructor'ı
         public BoardPanel(Map<Integer, Integer> ladders, Map<Integer, Integer> snakes,
                 LinkedHashMap<String, Integer> playerPositions, ImageIcon iconB, ImageIcon iconR,
                 Image ladderImg, Image snakeImg) {
@@ -410,17 +407,17 @@ public class GUIClient extends JFrame {
             setPreferredSize(new Dimension(800, 650));
         }
 
-        /**
-         * Aktif oyuncuyu ayarlar (görselde sıranın kimde olduğunu göstermek için)
-         */
+        
+         // aktif oyuncuyu ayarlar (görselde sıranın kimde olduğunu göstermek için)
+         
         public void setActivePlayer(String playerId) {
             this.activePlayer = playerId;
             repaint();
         }
 
-        /**
-         * Tahtayı ve taşları çizer
-         */
+        
+          //tahtayı ve taşları çizer
+         
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
@@ -430,7 +427,7 @@ public class GUIClient extends JFrame {
 
             drawPlayerNamesBar(g, panelW, cellSize); // Oyuncu isimleri çubuğu
 
-            // Kutuları çiz
+            // kutuları çiz
             for (int i = 0; i < 100; i++) {
                 int[] xy = getCellXY(i + 1, cellSize, panelW, panelH);
                 g.setColor(new Color(255, 230, 200));
@@ -443,7 +440,7 @@ public class GUIClient extends JFrame {
                 g.drawString(String.valueOf(i + 1), xy[0] + 8, xy[1] + 24);
             }
 
-            // Merdiven ve yılan resimlerini çiz
+            // merdiven ve yılan resimlerini çiz 
             Graphics2D g2 = (Graphics2D) g;
             if (ladderImg != null) {
                 for (var entry : ladders.entrySet()) {
@@ -460,7 +457,7 @@ public class GUIClient extends JFrame {
                 }
             }
 
-            // Oyuncu taşlarını çiz
+            // oyuncu taşlarını çiz
             int idx = 0;
             for (var entry : playerPositions.entrySet()) {
                 int[] center = getCellCenter(entry.getValue(), cellSize, panelW, panelH);
@@ -475,9 +472,9 @@ public class GUIClient extends JFrame {
             }
         }
 
-        /**
-         * Oyuncu isimleri ve sıranın kimde olduğunu gösteren barı çizer
-         */
+        
+         //oyuncu isimleri ve sıranın kimde olduğunu gösteren barı çizer
+         
         private void drawPlayerNamesBar(Graphics g, int panelW, int cellSize) {
             int barH = cellSize / 2 + 10, y = 5, x = (panelW - cellSize * cols) / 2;
             String[] names = playerPositions.keySet().toArray(new String[0]);
@@ -486,7 +483,7 @@ public class GUIClient extends JFrame {
             }
             int w = (cellSize * cols) / 2;
 
-            // Oyuncu 1 (sol)
+            // oyuncu 1 (sol)
             String name1 = names[0];
             boolean turn1 = name1.equals(activePlayer);
             if (turn1) {
@@ -503,7 +500,7 @@ public class GUIClient extends JFrame {
             g.setFont(new Font("SansSerif", turn1 ? Font.BOLD : Font.PLAIN, cellSize / 3));
             drawCenteredString(g, "🔴 " + name1, x, y, w, barH);
 
-            // Oyuncu 2 (sağ)
+            // oyuncu 2 (sağ)
             if (names.length > 1) {
                 String name2 = names[1];
                 boolean turn2 = name2.equals(activePlayer);
@@ -524,9 +521,9 @@ public class GUIClient extends JFrame {
             }
         }
 
-        /**
-         * Verilen kutuda ortalanmış şekilde string çizer
-         */
+        
+         //verilen kutuda ortalanmış şekilde string çizer
+         
         private void drawCenteredString(Graphics g, String text, int x, int y, int w, int h) {
             FontMetrics metrics = g.getFontMetrics(g.getFont());
             int tx = x + (w - metrics.stringWidth(text)) / 2;
@@ -534,9 +531,9 @@ public class GUIClient extends JFrame {
             g.drawString(text, tx, ty);
         }
 
-        /**
-         * Kutunun sol üst köşesinin koordinatını döndürür
-         */
+        
+         //kutunun sol üst köşesinin koordinatını döndürür
+         
         private int[] getCellXY(int pos, int cellSize, int panelW, int panelH) {
             int row = 9 - (pos - 1) / 10;
             int col = (row % 2 == 0) ? (pos - 1) % 10 : 9 - (pos - 1) % 10;
@@ -545,17 +542,17 @@ public class GUIClient extends JFrame {
             return new int[]{startX + col * cellSize, startY + row * cellSize};
         }
 
-        /**
-         * Kutunun tam merkezinin koordinatını döndürür
-         */
+       
+         // kutunun tam merkezinin koordinatını döndürür
+         
         private int[] getCellCenter(int pos, int cellSize, int panelW, int panelH) {
             int[] xy = getCellXY(pos, cellSize, panelW, panelH);
             return new int[]{xy[0] + cellSize / 2, xy[1] + cellSize / 2};
         }
 
-        /**
-         * İki hücre arasında, verilen resmi (merdiven/yılan) çizer
-         */
+        
+         // iki hücre arasında, verilen resmi (merdiven/yılan) çizer
+         
         private void drawImageBetween(Graphics2D g2, Image img, int x1, int y1, int x2, int y2, int cellSize) {
             double dx = x2 - x1, dy = y2 - y1, distance = Math.hypot(dx, dy);
             double angle = Math.atan2(dy, dx);
@@ -571,9 +568,9 @@ public class GUIClient extends JFrame {
         }
     }
 
-    /**
-     * Sunucuya sohbet mesajı gönderir
-     */
+    
+    // sunucuya sohbet mesajı gönderir
+     
     private void sendChat(String message) {
         out.println("CHAT:" + message);
     }

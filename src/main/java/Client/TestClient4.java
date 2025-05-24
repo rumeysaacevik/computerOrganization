@@ -22,7 +22,7 @@ public class TestClient4 {
     public static void main(String[] args) {
         try {
             // sunucuya bağlantı kurulur (localhost, port 5000)
-            Socket socket = new Socket("localhost", 5000);
+            Socket socket = new Socket("13.60.21.226", 5000);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
 
@@ -60,3 +60,4 @@ public class TestClient4 {
             e.printStackTrace();
         }
     }
+}

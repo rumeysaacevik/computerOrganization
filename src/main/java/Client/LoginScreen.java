@@ -17,29 +17,35 @@ import javax.imageio.ImageIO;
  * @author Rümeysa
  */
 
+
+
+//oyunun login ekranı oyuncudan isim ve sunucu IP'si alır, oyuna başlatır.
+ 
 public class LoginScreen extends JFrame {
 
     private JTextField nameField;
-    private JTextField ipField; // Sunucu IP girişi
+    private JTextField ipField; // sunucu IP girişi
 
+    //giriş ekranı arayüzü
     public LoginScreen() {
         setTitle("Snakes and Ladders - Login");
         setSize(600, 400);
-        setLocationRelativeTo(null);
-        setUndecorated(true);
+        setLocationRelativeTo(null); // ortada açmak için
+        setUndecorated(true);        // kenarlık yok
 
+        // arka plan paneli
         JPanel panel = new GradientPanel();
         panel.setLayout(null);
         add(panel);
 
-        // 🎲 Title
+        // oyun başlığı
         JLabel title = new JLabel("🐍  SNAKES & LADDERS 🎲", SwingConstants.CENTER);
         title.setFont(new Font("Serif", Font.BOLD, 32));
         title.setForeground(Color.WHITE);
         title.setBounds(80, 40, 440, 50);
         panel.add(title);
 
-        // ❓ Info button
+        // oyun açıklaması butonu
         JButton infoBtn = new JButton("❓");
         styleIconButton(infoBtn);
         infoBtn.setBounds(10, 10, 45, 30);
@@ -50,40 +56,40 @@ public class LoginScreen extends JFrame {
         );
         panel.add(infoBtn);
 
-        // ❌ Exit button
+        // çıkış butonu
         JButton exitBtn = new JButton("❌");
         styleIconButton(exitBtn);
         exitBtn.setBounds(545, 10, 45, 30);
         exitBtn.addActionListener(e -> System.exit(0));
         panel.add(exitBtn);
 
-        // 🔤 Name label
+        // isim etiketi için
         JLabel nameLabel = new JLabel("Enter your name:");
         nameLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         nameLabel.setForeground(Color.DARK_GRAY);
         nameLabel.setBounds(240, 110, 200, 30);
         panel.add(nameLabel);
 
-        // ✏️ Name input field
+        // isim giriş alanı
         nameField = new JTextField();
         nameField.setBounds(180, 140, 240, 35);
         nameField.setFont(new Font("SansSerif", Font.PLAIN, 16));
         panel.add(nameField);
 
-        // 🌐 IP label
+        // sunucu IP dizayn
         JLabel ipLabel = new JLabel("Server IP:");
         ipLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         ipLabel.setForeground(Color.DARK_GRAY);
         ipLabel.setBounds(240, 190, 200, 30);
         panel.add(ipLabel);
 
-        // 🌐 IP input field
-        ipField = new JTextField("127.0.0.1"); // Varsayılan localhost
+        // sunucu IP giriş alanı
+        ipField = new JTextField("13.60.21.226"); // Varsayılan localhost
         ipField.setBounds(180, 220, 240, 35);
         ipField.setFont(new Font("SansSerif", Font.PLAIN, 16));
         panel.add(ipField);
 
-        // ▶️ Start button
+        // oyunu başlatma butonu
         JButton startBtn = new JButton("START");
         startBtn.setFont(new Font("Arial", Font.BOLD, 18));
         startBtn.setBounds(215, 280, 170, 45);
@@ -94,24 +100,20 @@ public class LoginScreen extends JFrame {
             String name = nameField.getText().trim();
             String ip = ipField.getText().trim();
             if (!name.isEmpty() && !ip.isEmpty()) {
-                dispose();
-                new GUIClient(name, ip); // IP ile client başlatılıyor
+                dispose();                 // login ekranını kapatmak için
+                new GUIClient(name, ip);   // ana oyun ekranını başlatmak için
             } else {
                 JOptionPane.showMessageDialog(this, "Please enter your name and server IP!");
             }
         });
         panel.add(startBtn);
 
-        // 🎲 Dice image (resources/pieces/dice.png) -- %50 opacity
-        addImageWithOpacity(panel, "/pieces/dice.png", 500, 270, 100, 100, 0.5f);
+        // arka plana oyun görselleri yarı saydam şekilde eklenir
+        addImageWithOpacity(panel, "/pieces/dice.png", 500, 270, 100, 100, 0.5f);      // zar görseli için
+        addImageWithOpacity(panel, "/pieces/snakes.png", 10, 150, 160, 160, 0.5f);     // yılan görseli için
+        addImageWithOpacity(panel, "/pieces/ladders.png", 440, 120, 160, 160, 0.5f);   // merdiven görseli için
 
-        // 🐍 Snake image (resources/pieces/snake_transparent.png)
-        addImageWithOpacity(panel, "/pieces/snakes.png", 10, 150, 160, 160, 0.5f);
-
-        // 🪜 Ladder image (resources/pieces/ladder.png)
-        addImageWithOpacity(panel, "/pieces/ladders.png", 440, 120, 160, 160, 0.5f);
-
-        // 🔁 Scrolling text at bottom
+        // alt kısımda kayan yazı (g
         ScrollingText scroller = new ScrollingText();
         scroller.setBounds(0, 340, 600, 30);
         panel.add(scroller);
@@ -119,7 +121,7 @@ public class LoginScreen extends JFrame {
         setVisible(true);
     }
 
-    // REUSABLE: Add image with opacity from resource
+  //resim ekleme ve opaklıgını ayarlama
     private void addImageWithOpacity(JPanel panel, String resourcePath, int x, int y, int w, int h, float opacity) {
         try {
             java.net.URL imgUrl = getClass().getResource(resourcePath);
@@ -147,6 +149,7 @@ public class LoginScreen extends JFrame {
         }
     }
 
+    //bilgi alma(i) ve çıkış butonlarının stilini ayarlar
     private void styleIconButton(JButton btn) {
         btn.setFont(new Font("SansSerif", Font.BOLD, 14));
         btn.setFocusPainted(false);
@@ -154,6 +157,7 @@ public class LoginScreen extends JFrame {
         btn.setBorder(BorderFactory.createLineBorder(Color.GRAY));
     }
 
+//arkaplanı çizen panel
     static class GradientPanel extends JPanel {
         @Override
         protected void paintComponent(Graphics g) {
@@ -166,6 +170,7 @@ public class LoginScreen extends JFrame {
         }
     }
 
+  //alt kısımda kayan yazı paneli
     class ScrollingText extends JPanel {
 
         private final String message = "🎯 Reach 100 first to win! Ladders lift you, snakes drop you. 🎲 Good luck!";
